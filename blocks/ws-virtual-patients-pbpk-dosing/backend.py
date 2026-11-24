@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 9 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 10 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of a drug in thousands of virtual patients: a trial of a dosing regimen, the best dose per population, and one patient followed live in 3D
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -1153,6 +1153,51 @@ def scene_file(torso=False):
             {"type": "events", "at": "bottom-right", "count": 5}]}
 
 
+def stream_files(ctx, items, channel="model_files", piece=196608, wait_s=90):
+    """the files on a telemetry channel too (gzip, base64, in pieces), for the Model files view to put back together,
+    show and offer to download: on a worker whose result files do not reach EsaSim, that is how they get out. Then,
+    while the view asks for pieces it missed, they are sent again, until it has them all (or wait_s goes by)"""
+    import base64
+    import gzip
+    import time
+    packed = {}
+    for name, data in items:
+        z = gzip.compress(data, 6)
+        packed[name] = [base64.b64encode(z[i:i + piece]).decode("ascii") for i in range(0, len(z), piece)] or [""]
+
+    def send(name, k):
+        ctx.telemetry(channel, {"file": name, "part": k, "parts": len(packed[name]), "size": len(dict(items)[name]),
+                                "gz": True, "b64": packed[name][k]})
+    total = sum(len(v) for v in packed.values())
+    sent = 0
+    for name in packed:
+        for k in range(len(packed[name])):
+            send(name, k)
+            sent += 1
+            ctx.progress(90 + 9 * sent / total, "streaming the files to the view")
+            time.sleep(0.08)
+    ctx.log("Streamed %d files (%d pieces) on the channel %s, for the Model files view." % (len(packed), total, channel))
+    end = time.time() + wait_s
+    while time.time() < end:
+        try:
+            msgs = ctx.messages(channel)
+        except Exception:      # noqa: BLE001
+            msgs = []
+        for msg in msgs or []:
+            d = msg.get("data") if isinstance(msg, dict) else None
+            if not isinstance(d, dict):
+                continue
+            if d.get("complete"):
+                ctx.log("The view has every file.")
+                return
+            for name, parts in (d.get("missing") or {}).items():
+                for k in parts:
+                    if name in packed and 0 <= int(k) < len(packed[name]):
+                        send(name, int(k))
+                        time.sleep(0.05)
+        time.sleep(1.0)
+
+
 def models_run(ctx):
     ct = list(ctx.inputs.get("ct", []) or [])
     if ct:
@@ -1161,13 +1206,14 @@ def models_run(ctx):
     else:
         ctx.log("Making the patient (a mockup: a translucent body, its organs inside it, each a part of its own).")
         glb, tri = patient_glb()
-    for name, data in (("patient.glb", glb), ("platform.glb", platform_glb()), ("ring.glb", ring_glb()), ("heartbeat.wav", heartbeat_wav())):
+    made = [("patient.glb", glb), ("platform.glb", platform_glb()), ("ring.glb", ring_glb()), ("heartbeat.wav", heartbeat_wav()),
+            ("patient.scene.json", json.dumps(scene_file(torso=bool(ct)), indent=1).encode("utf-8"))]
+    for name, data in made:
         with open(ctx.output("models", name), "wb") as fh:
             fh.write(data)
-    with open(ctx.output("models", "patient.scene.json"), "w", encoding="utf-8") as fh:
-        json.dump(scene_file(torso=bool(ct)), fh, indent=1)
     ctx.log("patient.glb: %d parts, %d triangles, %d KB; platform.glb, ring.glb, heartbeat.wav, patient.scene.json." % (
         len(tri), sum(tri.values()), len(glb) // 1024))
+    stream_files(ctx, made)
     return {"parts": len(tri), "triangles": int(sum(tri.values()))}
 
 
