@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 46 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 47 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -1585,10 +1585,10 @@ def bedside_run(ctx):
                 e["end"] = b.t
                 say("%s: gone." % what)
         info = {k: (w, wh) for k, w, wh, _ in SIDE_EFFECTS}
-        rows = sorted((e["end"] is not None, e["start"], k) for k, e in seen.items() if e["end"] is None or b.t - e["end"] < 12.0)
+        rows = sorted((e["start"], e["end"] is not None, k) for k, e in seen.items() if e["end"] is None or b.t - e["end"] < 12.0)
         for i in range(7):
             item["se%d" % i] = ""
-        for i, (ended, _, k) in enumerate(rows[:7]):
+        for i, (_, ended, k) in enumerate(rows[-7:]):
             e, (what, where) = seen[k], info[k]
             cause = " · " + e["cause"].lower() if e["cause"] else ""
             item["se%d" % i] = ("○ %s (%s)%s · %s to %s" % (what, where, cause, clock(e["start"])[-5:], clock(e["end"])[-5:]) if ended
@@ -1690,7 +1690,7 @@ def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
              "options": ["15 min/s", "1 h/s", "4 h/s", "12 h/s"], "value": "1 h/s"},
             {"type": "button", "label": "Start again", "send": "start again"}],
         "overlay": [
-            {"type": "panel", "at": "top", "items": [{"type": "text", "text": "@patient.hint", "color": "#ffe08a"}]},
+            {"type": "panel", "at": "top", "css": "width:230px;max-width:none", "items": [{"type": "text", "text": "@patient.hint", "color": "#ffe08a"}]},
             {"type": "caption", "at": "center", "text": "@patient.banner", "visible": "@patient.banner_on", "style": "broadcast"},
             # (the two panels on the left stacked in one, so that they never overlap)
             {"type": "panel", "at": "top-left", "style": "none", "css": "width:232px;max-width:none", "items": [
