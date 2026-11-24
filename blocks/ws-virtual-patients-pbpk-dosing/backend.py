@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 25 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 26 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -1457,7 +1457,7 @@ def bedside_run(ctx):
             (focus,) + tuple(("%.2f" if fd["give"][0] < 1 else "%.0f") % x for x in fc.cum))
         ctx.telemetry("patient", item)
         vit = dict(v, bp="%d/%d" % (v["sys"], v["dia"]), alarm_txt=("⚠ " + " · ".join(v["alarms"])) if v["alarms"] else "",
-                   ramsay="Ramsay %d · %s" % (v["sedation"], v["sedation_txt"]))
+                   ramsay="Ramsay %d · %s" % (v["sedation"], v["sedation_txt"]), who=b.patient_name, day=item["day"], drugs=lines)
         ctx.telemetry("vitals", vit)
         # the story
         if v["rhythm"] != rhythm_was:
