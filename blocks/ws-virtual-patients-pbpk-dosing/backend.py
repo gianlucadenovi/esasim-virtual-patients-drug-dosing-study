@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 40 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 41 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -1506,7 +1506,9 @@ def bedside_run(ctx):
         glow = {"gut": a_r / rate_ref, "liver": l_r / rate_ref, "kidney": k_r / rate_ref}
         for t in ORGAN_VIEW:
             ct = float(fc.tissue(t)[0])
-            col = scale_rgb(math.log(max(ct, s_lo * 1e-3) / s_lo) / math.log(s_hi / s_lo))
+            pos = math.log(max(ct, s_lo * 1e-3) / s_lo) / math.log(s_hi / s_lo)
+            col = scale_rgb(pos)
+            item["p_" + t] = round(min(1.0, max(0.0, pos)), 3)              # (the organ's bar: its place on the colour scale)
             item["c_" + t] = hexc(col)
             item["g_" + t] = hexc(col, 0.12 + 0.88 * min(1.0, glow[t]) if t in glow else 0.12)
             item["t_" + t] = (fmt % ct) + " " + unit
@@ -1578,8 +1580,11 @@ def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
              "lung": {"scale": [{"expr": "1 + %g * %s" % (k, fill)} for k in (0.012, 0.012, 0.03)]}}
     # the ribcage rises with each breath (from its pivot at the spine): forwards, and a little sideways and upwards
     parts["ribcage"] = {"scale": [{"expr": "1 + %g * %s" % (k, fill)} for k in (0.02, 0.03, 0.005)]}
-    organs = [{"type": "text", "text": "%s  {@patient.t_%s}" % (TISSUE_LABEL[t], t), "size": "small"}
-              for t in ("brain", "heart", "lung", "liver", "gut", "kidney", "muscle", "adipose", "bone")]
+    organs = []
+    for t in ("brain", "heart", "lung", "liver", "gut", "kidney", "muscle", "adipose", "bone"):
+        organs += [{"type": "text", "text": "%s  {@patient.t_%s}" % (TISSUE_LABEL[t], t), "size": "small"},
+                   {"type": "bar", "value": "@patient.p_%s" % t, "min": 0, "max": 1, "format": "%", "width": 170,
+                    "color": "#fa8040", "css": "margin-top:0"}]
     legend = [{"type": "text", "text": "■ {@patient.leg%d} {@patient.unit}%s" % (k, ("  hardly any", "", "", "", "  the most")[k]),
                "color": hexc(scale_rgb(k / 4.0)), "size": "small"} for k in range(5)]
     z = look_z
