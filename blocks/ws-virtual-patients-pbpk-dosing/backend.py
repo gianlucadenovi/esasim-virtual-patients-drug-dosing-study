@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 35 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 36 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -1525,9 +1525,9 @@ def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
     breath = "@patient.breath"
     fill = "sin(3.1416 * min(1, max(0, ((%s - floor(%s)) * 60 / max(@patient.rr, 3) - 0.3) / 2.6)))" % (breath, breath)
     parts = {"heart": {"scale": {"expr": "1 + 0.09 * %s" % pulse}},
-             "lung": {"scale": [{"expr": "1 + %g * %s" % (k, fill)} for k in (0.03, 0.03, 0.04)]}}
+             "lung": {"scale": [{"expr": "1 + %g * %s" % (k, fill)} for k in (0.012, 0.012, 0.03)]}}
     # the ribcage rises with each breath (from its pivot at the spine): forwards, and a little sideways and upwards
-    parts["ribcage"] = {"scale": [{"expr": "1 + %g * %s" % (k, fill)} for k in (0.05, 0.07, 0.015)]}
+    parts["ribcage"] = {"scale": [{"expr": "1 + %g * %s" % (k, fill)} for k in (0.02, 0.03, 0.005)]}
     organs = [{"type": "text", "text": "%s  {@patient.t_%s}" % (TISSUE_LABEL[t], t), "size": "small"}
               for t in ("brain", "heart", "lung", "liver", "gut", "kidney", "muscle", "adipose", "bone")]
     legend = [{"type": "text", "text": "■ {@patient.leg%d} {@patient.unit}%s" % (k, ("  hardly any", "", "", "", "  the most")[k]),
