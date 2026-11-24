@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 42 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 43 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -1229,6 +1229,61 @@ def advice(v, C, b):
     return "Stable. Raise the dose (Dose ×), add another drug, or make the clock faster and watch it build up."
 
 
+# The side effects the bedside lists, as they appear and go: (key, what, where in the body, the drugs that cause it)
+SIDE_EFFECTS = [
+    ("breathing", "Slow, shallow breathing", "brainstem, lungs", ("Morphine", "Midazolam")),
+    ("oxygen", "Low oxygen in the blood", "lungs, blood", ("Morphine", "Midazolam", "Propranolol")),
+    ("sedation", "Drowsiness, sedation", "brain", ("Midazolam", "Morphine")),
+    ("bronchospasm", "Narrowed airways (bronchospasm)", "lungs", ("Propranolol",)),
+    ("block", "Heart block: dropped beats", "heart", ("Digoxin",)),
+    ("ectopy", "Extra heartbeats (ectopics)", "heart", ("Theophylline", "Digoxin")),
+    ("fast", "Fast heart rate", "heart", ("Theophylline", "Salbutamol", "Atropine", "Amlodipine")),
+    ("slow", "Slow heart rate", "heart", ("Digoxin", "Propranolol", "Morphine")),
+    ("qt", "Long QT interval", "heart", ("Ondansetron", "Digoxin")),
+    ("bp", "Low blood pressure", "blood vessels", ("Amlodipine", "Midazolam", "Propranolol", "Morphine")),
+    ("nausea", "Nausea", "gut, brain", ("Morphine", "Theophylline", "Digoxin")),
+    ("vision", "Blurred, yellow-tinged vision", "eyes", ("Digoxin",)),
+    ("restless", "Restlessness, insomnia", "brain", ("Theophylline",)),
+    ("tremor", "Tremor", "muscles", ("Salbutamol", "Theophylline")),
+    ("seizure", "Seizure risk", "brain", ("Theophylline",)),
+    ("delirium", "Delirium, hot dry skin", "brain, skin", ("Atropine",)),
+    ("withdrawal", "Opioid withdrawal: pain, agitation", "brain", ("Naloxone",)),
+    ("liver", "Liver injury risk", "liver", ("Paracetamol",)),
+    # (these come after days of use, not at once)
+    ("constipation", "Constipation (after a day on it)", "gut", ("Morphine",)),
+    ("oedema", "Ankle swelling (after 3 days on it)", "legs", ("Amlodipine",)),
+    ("fatigue", "Tiredness, cold hands (after a day on it)", "muscles, skin", ("Propranolol",)),
+]
+LATE = {"constipation": ("Morphine", 0.3, 24.0), "oedema": ("Amlodipine", 0.3, 72.0), "fatigue": ("Propranolol", 0.4, 24.0)}
+
+
+def side_effects_now(v, C, b, expo, dt):
+    """the side effects present now: {key: the drug causing it}; expo keeps the hours each late one has been building"""
+    def lvl(n):
+        if n not in b.drugs:
+            return 0.0
+        return C.get(n, 0.0) / next(iter(DRUGS[n]["range"].values()))[1]          # (1 = the top of the target range)
+
+    def on(n, k=0.1):
+        return lvl(n) > k
+    al, eff, rhythm = v["alarms"], v["effects"], v["rhythm"]
+    p = b.drugs["Paracetamol"].plasma()[0] if "Paracetamol" in b.drugs else 0.0
+    here = {"breathing": "RESP LOW" in al or v["rr"] < 10, "oxygen": "SpO2 LOW" in al, "sedation": v["sedation"] >= 3,
+            "bronchospasm": v["airway"] != "clear" and on("Propranolol"), "block": "block" in rhythm,
+            "ectopy": "ectopic" in rhythm.lower(), "fast": "HR HIGH" in al, "slow": "HR LOW" in al, "qt": v["qtc"] >= 470,
+            "bp": "BP LOW" in al, "nausea": v["nausea"] != "none", "vision": C.get("Digoxin", 0.0) > 2.0,
+            "restless": C.get("Theophylline", 0.0) > 20.0, "tremor": "tremor" in eff, "seizure": "seizure" in eff,
+            "delirium": "delirium" in eff, "withdrawal": "opioid reversal" in eff, "liver": p > 150.0}
+    for key, (drug, k, hours) in LATE.items():
+        expo[key] = max(0.0, expo.get(key, 0.0) + (dt if on(drug, k) else -dt))
+        here[key] = expo[key] >= hours and on(drug, k)
+    out = {}
+    for key, what, where, causes in SIDE_EFFECTS:
+        if here.get(key):
+            out[key] = next((n for n in causes if on(n)), None)
+    return out
+
+
 class DrugCourse:
     """one drug in the patient: its own exact linear model (the drugs do not change one another's kinetics here)"""
 
@@ -1393,6 +1448,7 @@ def bedside_run(ctx):
             return                                                           # (a continuous infusion)
         say("%s %g mg %s (regular, every %g h)." % (name, mg, how(kind, over), every))
 
+    seen, expo = {}, {}                          # (the side effects: when each started and ended; the hours the late ones have been building)
     shown = {"text": "", "until": 0.0}           # (a message across the 3D view for a few seconds: what a control just did)
 
     def flash(text):
@@ -1407,6 +1463,8 @@ def bedside_run(ctx):
             ctx.telemetry("events", {"text": "─── new patient ───"})
             intro()
             flash("Started again: %s, Day 1, no drugs" % b.patient_name)
+            seen.clear()
+            expo.clear()
         elif name == "drug" and value in DRUGS:
             focus = value
             flash("%s chosen: press Give dose" % focus)
@@ -1450,7 +1508,8 @@ def bedside_run(ctx):
             d = msg.get("data") if isinstance(msg, dict) else None
             if isinstance(d, dict) and "control" in d:
                 done = handle(d["control"], d.get("value")) or done
-        elapsed += b.advance(speed / fps, on_dose)
+        dt_h = b.advance(speed / fps, on_dose)
+        elapsed += dt_h
         C = {n: c.effect() for n, c in b.drugs.items()}
         v = vitals(C, b.base, b.extra)
         fc = b.course(focus)
@@ -1516,6 +1575,25 @@ def bedside_run(ctx):
         item["c_blood"], item["g_blood"] = hexc(pcol), hexc(pcol, 0.4)
         item["cleared"] = "%s so far: absorbed %s mg · liver %s mg · kidneys %s mg" % (
             (focus,) + tuple(("%.2f" if fd["give"][0] < 1 else "%.0f") % x for x in fc.cum))
+        now_se = side_effects_now(v, C, b, expo, dt_h)
+        for key, what, where, causes in SIDE_EFFECTS:
+            e = seen.get(key)
+            if key in now_se and (e is None or e["end"] is not None):
+                seen[key] = {"start": b.t, "end": None, "cause": now_se[key]}
+                say("Side effect: %s (%s)%s." % (what, where, ", from " + now_se[key].lower() if now_se[key] else ""))
+            elif key not in now_se and e is not None and e["end"] is None:
+                e["end"] = b.t
+                say("%s: gone." % what)
+        info = {k: (w, wh) for k, w, wh, _ in SIDE_EFFECTS}
+        rows = sorted((e["end"] is not None, e["start"], k) for k, e in seen.items() if e["end"] is None or b.t - e["end"] < 12.0)
+        for i in range(7):
+            item["se%d" % i] = ""
+        for i, (ended, _, k) in enumerate(rows[:7]):
+            e, (what, where) = seen[k], info[k]
+            cause = " · " + e["cause"].lower() if e["cause"] else ""
+            item["se%d" % i] = ("○ %s (%s)%s · %s to %s" % (what, where, cause, clock(e["start"])[-5:], clock(e["end"])[-5:]) if ended
+                                else "● %s (%s)%s · since %s" % (what, where, cause, clock(e["start"])))
+        item["se_none"] = "" if rows else "None so far: they appear here as they start, and stay a while after they pass."
         ctx.telemetry("patient", item)
         vit = dict(v, bp="%d/%d" % (v["sys"], v["dia"]), alarm_txt=("⚠ " + " · ".join(v["alarms"])) if v["alarms"] else "",
                    ramsay="Ramsay %d · %s" % (v["sedation"], v["sedation_txt"]), who=b.patient_name, day=item["day"], drugs=lines)
@@ -1541,7 +1619,7 @@ def bedside_run(ctx):
         elif pain_was is None:
             pain_was = p_now
         if v["nausea"] != nausea_was:
-            if nausea_was is not None:
+            if nausea_was not in (None, "none") and v["nausea"] != "none":      # (its start and end: the side effects)
                 say("Nausea: %s." % v["nausea"])
             nausea_was = v["nausea"]
         tick += 1
@@ -1581,7 +1659,7 @@ def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
     # the ribcage rises with each breath (from its pivot at the spine): forwards, and a little sideways and upwards
     parts["ribcage"] = {"scale": [{"expr": "1 + %g * %s" % (k, fill)} for k in (0.02, 0.03, 0.005)]}
     organs = [{"type": "bar", "label": TISSUE_LABEL[t], "value": "@patient.p_%s" % t, "min": 0, "max": 1, "format": "%",
-               "width": 180, "color": "#fa8040"} for t in ("brain", "heart", "lung", "liver", "gut", "kidney", "muscle", "adipose", "bone")]
+               "width": 210, "color": "#fa8040"} for t in ("brain", "heart", "lung", "liver", "gut", "kidney", "muscle", "adipose", "bone")]
     legend = [{"type": "text", "text": "Bars and colours: where each organ's level sits on this scale", "color": "#9aa3b2", "size": "small"}] + [
         {"type": "text", "text": "■ %d%%  {@patient.leg%d} {@patient.unit}%s" % (25 * k, k, ("  hardly any", "", "", "", "  the most")[k]),
          "color": hexc(scale_rgb(k / 4.0)), "size": "small"} for k in range(5)]
@@ -1614,19 +1692,24 @@ def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
         "overlay": [
             {"type": "panel", "at": "top", "items": [{"type": "text", "text": "@patient.hint", "color": "#ffe08a"}]},
             {"type": "caption", "at": "center", "text": "@patient.banner", "visible": "@patient.banner_on", "style": "broadcast"},
-            {"type": "panel", "at": "top-left", "title": "Virtual patient", "items": [
-                {"type": "text", "text": "@patient.who"},
-                {"type": "text", "text": "@patient.day", "size": "large"},
-                {"type": "text", "text": "Drugs on board", "color": "#9aa3b2", "size": "small"},
-                {"type": "text", "text": "@patient.d0", "size": "small"}, {"type": "text", "text": "@patient.d1", "size": "small"},
-                {"type": "text", "text": "@patient.d2", "size": "small"}, {"type": "text", "text": "@patient.d3", "size": "small"},
-                {"type": "text", "text": "@patient.d4", "size": "small"}, {"type": "text", "text": "@patient.d5", "size": "small"}]},
-            {"type": "panel", "at": "left", "title": "Where the chosen drug is", "items": [
-                {"type": "text", "text": "@patient.focus_txt", "size": "small"},
-                {"type": "text", "text": "@patient.why", "color": "#9aa3b2", "size": "small"},
-                {"type": "text", "text": "@patient.cleared", "color": "#9aa3b2", "size": "small"}] + organs + legend + [
-                {"type": "text", "text": "Glow: the gut absorbing, the liver and kidneys clearing", "color": "#9aa3b2", "size": "small"}]},
-            {"type": "events", "at": "bottom-right", "count": 7}]}
+            # (the two panels on the left stacked in one, so that they never overlap)
+            {"type": "panel", "at": "top-left", "style": "none", "css": "width:232px;max-width:none", "items": [
+                {"type": "panel", "title": "Virtual patient", "style": "clean", "css": "width:210px;max-width:none", "items": [
+                    {"type": "text", "text": "@patient.who"},
+                    {"type": "text", "text": "@patient.day", "size": "large"},
+                    {"type": "text", "text": "Drugs on board", "color": "#9aa3b2", "size": "small"},
+                    {"type": "text", "text": "@patient.d0", "size": "small"}, {"type": "text", "text": "@patient.d1", "size": "small"},
+                    {"type": "text", "text": "@patient.d2", "size": "small"}, {"type": "text", "text": "@patient.d3", "size": "small"},
+                    {"type": "text", "text": "@patient.d4", "size": "small"}, {"type": "text", "text": "@patient.d5", "size": "small"}]},
+                {"type": "panel", "title": "Where the chosen drug is", "style": "clean", "css": "width:210px;max-width:none;margin-top:10px", "items": [
+                    {"type": "text", "text": "@patient.focus_txt", "size": "small"},
+                    {"type": "text", "text": "@patient.why", "color": "#9aa3b2", "size": "small"},
+                    {"type": "text", "text": "@patient.cleared", "color": "#9aa3b2", "size": "small"}] + organs + legend + [
+                    {"type": "text", "text": "Glow: the gut absorbing, the liver and kidneys clearing", "color": "#9aa3b2", "size": "small"}]}]},
+            {"type": "panel", "at": "right", "title": "Side effects", "css": "width:250px;max-width:none", "items": [
+                {"type": "text", "text": "@patient.se_none", "color": "#9aa3b2", "size": "small"}] + [
+                {"type": "text", "text": "@patient.se%d" % k, "color": "#ffb4a8", "size": "small"} for k in range(7)]},
+            {"type": "events", "at": "bottom-right", "count": 4}]}
 
 
 class _CaseFile:
