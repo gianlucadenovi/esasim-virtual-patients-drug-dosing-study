@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 44 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 45 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -1664,7 +1664,7 @@ def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
         {"type": "text", "text": "■ %d%%  {@patient.leg%d} {@patient.unit}%s" % (25 * k, k, ("  hardly any", "", "", "", "  the most")[k]),
          "color": hexc(scale_rgb(k / 4.0)), "size": "small"} for k in range(5)]
     z = look_z
-    return {
+    return _full_width({
         "format": "esasim.scene/2", "title": "Virtual patient", "units": "m", "up": "z",
         "renderer": {"bloom": {"strength": 0.3, "radius": 0.4, "threshold": 0.8}},
         "data": {"delay": 0.6, "smooth": 0.2, "events": "events"},
@@ -1707,7 +1707,18 @@ def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
             {"type": "panel", "at": "right", "title": "Side effects", "css": "width:250px;max-width:none;text-align:left", "items": [
                 {"type": "text", "text": "@patient.se_none", "color": "#9aa3b2", "size": "small"}] + [
                 {"type": "text", "text": "@patient.se%d" % k, "color": "#ffb4a8", "size": "small"} for k in range(7)]},
-            {"type": "events", "at": "bottom-right", "count": 4}]}
+            {"type": "events", "at": "bottom-right", "count": 4}]})
+
+
+def _full_width(scene):
+    """the items inside the overlay's panels as wide as their panel (the 3D view caps each at under half of it)"""
+    def free(items):
+        for it in items:
+            it.setdefault("css", "max-width:none")
+            free(it.get("items") or [])
+    for w in scene["overlay"]:
+        free(w.get("items") or [])
+    return scene
 
 
 class _CaseFile:
