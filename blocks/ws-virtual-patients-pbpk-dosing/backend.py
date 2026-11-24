@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 43 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 44 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -1660,7 +1660,7 @@ def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
     parts["ribcage"] = {"scale": [{"expr": "1 + %g * %s" % (k, fill)} for k in (0.02, 0.03, 0.005)]}
     organs = [{"type": "bar", "label": TISSUE_LABEL[t], "value": "@patient.p_%s" % t, "min": 0, "max": 1, "format": "%",
                "width": 210, "color": "#fa8040"} for t in ("brain", "heart", "lung", "liver", "gut", "kidney", "muscle", "adipose", "bone")]
-    legend = [{"type": "text", "text": "Bars and colours: where each organ's level sits on this scale", "color": "#9aa3b2", "size": "small"}] + [
+    legend = [
         {"type": "text", "text": "■ %d%%  {@patient.leg%d} {@patient.unit}%s" % (25 * k, k, ("  hardly any", "", "", "", "  the most")[k]),
          "color": hexc(scale_rgb(k / 4.0)), "size": "small"} for k in range(5)]
     z = look_z
@@ -1703,10 +1703,8 @@ def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
                     {"type": "text", "text": "@patient.d4", "size": "small"}, {"type": "text", "text": "@patient.d5", "size": "small"}]},
                 {"type": "panel", "title": "Where the chosen drug is", "style": "clean", "css": "width:210px;max-width:none;margin-top:10px", "items": [
                     {"type": "text", "text": "@patient.focus_txt", "size": "small"},
-                    {"type": "text", "text": "@patient.why", "color": "#9aa3b2", "size": "small"},
-                    {"type": "text", "text": "@patient.cleared", "color": "#9aa3b2", "size": "small"}] + organs + legend + [
-                    {"type": "text", "text": "Glow: the gut absorbing, the liver and kidneys clearing", "color": "#9aa3b2", "size": "small"}]}]},
-            {"type": "panel", "at": "right", "title": "Side effects", "css": "width:250px;max-width:none", "items": [
+                    {"type": "text", "text": "@patient.why", "color": "#9aa3b2", "size": "small"}] + organs + legend}]},
+            {"type": "panel", "at": "right", "title": "Side effects", "css": "width:250px;max-width:none;text-align:left", "items": [
                 {"type": "text", "text": "@patient.se_none", "color": "#9aa3b2", "size": "small"}] + [
                 {"type": "text", "text": "@patient.se%d" % k, "color": "#ffb4a8", "size": "small"} for k in range(7)]},
             {"type": "events", "at": "bottom-right", "count": 4}]}
