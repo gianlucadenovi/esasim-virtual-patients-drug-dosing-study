@@ -1,0 +1,18 @@
+{
+    "esasim": {
+        "kind": "files",
+        "version": 1
+    },
+    "release": null,
+    "datasets": [],
+    "assets": [
+        {
+            "path": "covers/fda-project-optimus-selecting-optimal-dose-oncology.webp",
+            "size": 363968,
+            "sha256": "0402896cd35c65adc87ffed0a327c21db8947f91a635d67e1fd1e981ecacff26",
+            "zip": "assets/covers/fda-project-optimus-selecting-optimal-dose-oncology.webp",
+            "in": "repo"
+        }
+    ],
+    "saved": "2026-11-24T21:14:53+00:00"
+}

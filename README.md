@@ -1,5 +1,5 @@
 <!-- esasim: cover -->
-![Virtual patients: drug dosing study](assets/cover.svg)
+![Virtual patients: drug dosing study](assets/cover.jpg)
 <!-- /esasim: cover -->
 
 # Virtual patients: drug dosing study
@@ -111,4 +111,10 @@ An [EsaSim](https://esacode.com/) project of the workspace Gianluca De Novi's wo
 
 - [Virtual patients (PBPK dosing)](blocks/ws-virtual-patients-pbpk-dosing) · version 9
 
-Keys pasted in blocks (secret settings) are not saved here. Datasets, results and the team stay in EsaSim.
+### Assets
+
+The files the project's views draw with (3D models, textures, sounds), in [assets/](assets/):
+
+- [covers/fda-project-optimus-selecting-optimal-dose-oncology.webp](assets/covers/fda-project-optimus-selecting-optimal-dose-oncology.webp) · 355 KB
+
+Keys pasted in blocks (secret settings) are not saved here, nor are the team and the results of runs.
