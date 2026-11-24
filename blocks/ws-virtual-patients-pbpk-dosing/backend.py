@@ -1,11 +1,11 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 11 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 12 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of a drug in thousands of virtual patients: a trial of a dosing regimen, the best dose per population, and one patient followed live in 3D
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
 #
 # Inputs   ctx.inputs["id"] is a list of files: .path .name .size .read_text() .read_json()
-#   ct          Files (gz, nii)           CT case · several · optional · Make the 3D models: a CT case with its labels (ct.nii.gz and segmentations/<structure>.nii.gz, as the TotalSegmentator dataset gives them). Without it, the patient is a mockup.
+#   ct          Files (gz, nii)           CT case · several · optional · Make the 3D models: a CT case with its labels (ct.nii.gz and segmentations/<structure>.nii.gz, as the TotalSegmentator dataset gives them). Without it, the CT case setting, else a mockup body.
 # Outputs  ctx.output("id", "name.ext") is the path to write; ctx.write_json / ctx.write_text
 #   course      Table (csv)               Course · course.csv: the plasma concentration over time, percentiles over the patients (p05, p25, median, p75, p95), with the target range and the toxic level
 #   patients    Table (csv)               Patients · patients.csv: one row per virtual patient (who they are, clearance, half-life, trough, peak, average, outcome)
@@ -32,10 +32,11 @@
 #   max_toxic_pct number    Find the dose: toxic peaks at most (%) = 5
 #   follow      select    Follow = "The typical patient" of The typical patient | The most exposed patient | The least expose…
 #   speed       number    Follow: simulated hours per second = 1
+#   ct_case     text      Make the 3D models: CT case = ""
 #   accelerator select    Run on = "auto" of auto | NVIDIA GPU | CPU
 #   seed        number    Seed = 1
 # Runs on  Any worker, NVIDIA GPU. Return a dict to fill the "result" output.
-# Packages numpy, torch, scikit-image, scipy, SimpleITK, trimesh, fast-simplification (installed by the worker with pip when missing)
+# Packages numpy, torch, scikit-image, scipy, SimpleITK, trimesh, fast-simplification, remotezip, requests (installed by the worker with pip when missing)
 # EsaSim rewrites these lines from the block's definition each time it is saved: change the definition, not them.
 # ── end of EsaSim block header ────────────────────────────────────────
 

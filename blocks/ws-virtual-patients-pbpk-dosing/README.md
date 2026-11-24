@@ -2,13 +2,13 @@
 
 A whole-body physiologically based pharmacokinetic model of a drug in thousands of virtual patients: a trial of a dosing regimen, the best dose per population, and one patient followed live in 3D
 
-Run a virtual trial: a population (healthy adults, smokers, elderly, liver cirrhosis, heart failure, kidney impairment, a mixed clinical population) on a regimen; who ends up in the target range, below it, above it, and who reaches toxic peaks, overall and by group. Find the dose: for every population, the dose that puts the most patients in range while keeping toxic peaks rare. Follow one patient (3D): the typical, most exposed, least exposed or a random patient, each organ coloured by the drug's concentration there, live. Make the 3D models: the patient, the platform and the scene for the project's assets; wire a labelled CT case (ct.nii.gz and segmentations/*.nii.gz) to CT case for an anatomical patient, otherwise it is a mockup. The model is linear, so each run is a few seconds even for 10,000 patients (GPU or CPU).
+Run a virtual trial: a population (healthy adults, smokers, elderly, liver cirrhosis, heart failure, kidney impairment, a mixed clinical population) on a regimen; who ends up in the target range, below it, above it, and who reaches toxic peaks, overall and by group. Find the dose: for every population, the dose that puts the most patients in range while keeping toxic peaks rare. Follow one patient (3D): the typical, most exposed, least exposed or a random patient, each organ coloured by the drug's concentration there, live. Make the 3D models: the patient, the platform and the scene for the project's assets; from a labelled CT case wired to CT case, or named in the CT case setting (a TotalSegmentator case read from Zenodo), otherwise a mockup body. The files are also streamed on the channel model_files, for the Model files view (preview and download). The model is linear, so each run is a few seconds even for 10,000 patients (GPU or CPU).
 
 An [EsaSim](https://esacode.com/) blueprint block: it runs on a worker, in Python (`backend.py`, `def run(ctx)`).
 
 | | |
 |---|---|
-| Block | `ws-virtual-patients-pbpk-dosing` · version 11 |
+| Block | `ws-virtual-patients-pbpk-dosing` · version 12 |
 | Workspace | Gianluca De Novi's workspace |
 | Author | Gianluca De Novi |
 | Runs on | Any worker, NVIDIA GPU |
@@ -17,7 +17,7 @@ An [EsaSim](https://esacode.com/) blueprint block: it runs on a worker, in Pytho
 
 | Port | Type | Description |
 |---|---|---|
-| `ct` CT case | Files (gz, nii) | Make the 3D models: a CT case with its labels (ct.nii.gz and segmentations/<structure>.nii.gz, as the TotalSegmentator dataset gives them). Without it, the patient is a mockup. Several connections. Optional. |
+| `ct` CT case | Files (gz, nii) | Make the 3D models: a CT case with its labels (ct.nii.gz and segmentations/<structure>.nii.gz, as the TotalSegmentator dataset gives them). Without it, the CT case setting, else a mockup body. Several connections. Optional. |
 
 ## Outputs
 
@@ -51,6 +51,7 @@ An [EsaSim](https://esacode.com/) blueprint block: it runs on a worker, in Pytho
 | `max_toxic_pct` Find the dose: toxic peaks at most (%) | number | `5` |  |
 | `follow` Follow | select | `"The typical patient"` |  |
 | `speed` Follow: simulated hours per second | number | `1` |  |
+| `ct_case` Make the 3D models: CT case | text | `""` | With nothing wired to CT case: a case of the TotalSegmentator dataset (such as s1400), read in place from Zenodo. Empty: the mockup body. |
 | `accelerator` Run on | select | `"auto"` |  |
 | `seed` Seed | number | `1` |  |
 
