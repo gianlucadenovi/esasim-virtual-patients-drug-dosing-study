@@ -20,8 +20,8 @@
         {
             "name": "2 · Find the dose",
             "file": "blueprints/2-find-the-dose.json",
-            "published_version": 0,
-            "nodes": 5
+            "published_version": 1,
+            "nodes": 7
         },
         {
             "name": "3 · Follow one patient (3D)",

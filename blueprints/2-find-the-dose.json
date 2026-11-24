@@ -5,8 +5,8 @@
     },
     "name": "2 · Find the dose",
     "description": "For every population, the dose that puts the most patients in the target range while keeping toxic peaks rare; every dose tried, as curves.",
-    "published_version": 0,
-    "updated": "2026-11-24 20:21:04",
+    "published_version": 1,
+    "updated": "2026-11-24 20:26:28",
     "graph": {
         "nodes": [
             {
@@ -29,6 +29,30 @@
                 "title": "Find the dose"
             },
             {
+                "id": "tel_doses",
+                "type": "telemetry",
+                "x": -300,
+                "y": -240,
+                "params": {
+                    "interval": 0.5,
+                    "channels": "doses",
+                    "keep": 500
+                },
+                "title": "Doses tried"
+            },
+            {
+                "id": "tel_best",
+                "type": "telemetry",
+                "x": -300,
+                "y": 240,
+                "params": {
+                    "interval": 0.5,
+                    "channels": "best",
+                    "keep": 50
+                },
+                "title": "Best doses"
+            },
+            {
                 "id": "best_table",
                 "type": "table-view",
                 "x": -40,
@@ -45,6 +69,7 @@
                     "kind": "bars",
                     "x": "population",
                     "y": "dose",
+                    "channel": "best",
                     "ymin": "0",
                     "title": "The dose for each population (mg every dosing interval)"
                 },
@@ -59,6 +84,7 @@
                     "kind": "line",
                     "x": "dose",
                     "y": "healthy_in_range,smokers_in_range,elderly_in_range,cirrhosis_in_range,heart_failure_in_range,kidney_in_range,mixed_in_range",
+                    "channel": "doses",
                     "ymin": "0",
                     "ymax": "100",
                     "title": "In the target range (%) by dose (mg)"
@@ -74,6 +100,7 @@
                     "kind": "line",
                     "x": "dose",
                     "y": "healthy_toxic,smokers_toxic,elderly_toxic,cirrhosis_toxic,heart_failure_toxic,kidney_toxic,mixed_toxic",
+                    "channel": "doses",
                     "ymin": "0",
                     "ymax": "100",
                     "title": "Toxic peaks (%) by dose (mg)"
@@ -83,10 +110,32 @@
         ],
         "edges": [
             {
-                "id": "dose.best>best_table.data",
+                "id": "dose.telemetry>tel_doses.from",
                 "from": {
                     "node": "dose",
-                    "port": "best"
+                    "port": "telemetry"
+                },
+                "to": {
+                    "node": "tel_doses",
+                    "port": "from"
+                }
+            },
+            {
+                "id": "dose.telemetry>tel_best.from",
+                "from": {
+                    "node": "dose",
+                    "port": "telemetry"
+                },
+                "to": {
+                    "node": "tel_best",
+                    "port": "from"
+                }
+            },
+            {
+                "id": "tel_best.stream>best_table.data",
+                "from": {
+                    "node": "tel_best",
+                    "port": "stream"
                 },
                 "to": {
                     "node": "best_table",
@@ -94,10 +143,10 @@
                 }
             },
             {
-                "id": "dose.best>best_chart.data",
+                "id": "tel_best.stream>best_chart.data",
                 "from": {
-                    "node": "dose",
-                    "port": "best"
+                    "node": "tel_best",
+                    "port": "stream"
                 },
                 "to": {
                     "node": "best_chart",
@@ -105,10 +154,10 @@
                 }
             },
             {
-                "id": "dose.doses>in_range.data",
+                "id": "tel_doses.stream>in_range.data",
                 "from": {
-                    "node": "dose",
-                    "port": "doses"
+                    "node": "tel_doses",
+                    "port": "stream"
                 },
                 "to": {
                     "node": "in_range",
@@ -116,10 +165,10 @@
                 }
             },
             {
-                "id": "dose.doses>toxic.data",
+                "id": "tel_doses.stream>toxic.data",
                 "from": {
-                    "node": "dose",
-                    "port": "doses"
+                    "node": "tel_doses",
+                    "port": "stream"
                 },
                 "to": {
                     "node": "toxic",
