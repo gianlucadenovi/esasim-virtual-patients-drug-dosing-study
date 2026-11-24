@@ -255,6 +255,6 @@
         "scikit-image"
     ],
     "esasim": {
-        "version": 6
+        "version": 7
     }
 }

@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 6 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 7 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of a drug in thousands of virtual patients: a trial of a dosing regimen, the best dose per population, and one patient followed live in 3D
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -529,6 +529,118 @@ def parts(step=0.004):
     return out
 
 
+# ── the patient from a CT case: every labelled structure, grouped by the model's compartments ────────────────────────
+# A CT scan and its experts' labels (the TotalSegmentator dataset: a mask per structure, segmentations/<name>.nii.gz)
+# become the patient's parts: each compartment's structures joined into one surface (the liver and gallbladder; the
+# stomach, bowel and oesophagus as the gut; every bone as the skeleton...), the skin and the fat under it from the CT's
+# own densities. Metres, z up, facing +y, the scan's middle at TORSO_Z above the platform (it floats, as on a display).
+TORSO_Z = 1.15
+COMPARTMENT_OF = [   # (compartment, words in the structures' names), the first that matches
+    ("venous", ("vena_cava", "portal_vein", "brachiocephalic_vein", "iliac_vena", "subclavian_vein", "jugular")),
+    ("arterial", ("aorta", "artery", "brachiocephalic_trunk", "pulmonary_vein", "atrial_appendage")),
+    ("heart", ("heart", "myocardium", "atrium", "ventricle")),
+    ("lung", ("lung", "trachea", "bronch")),
+    ("liver", ("liver", "gallbladder")),
+    ("gut", ("stomach", "small_bowel", "duodenum", "colon", "esophagus", "rectum")),
+    ("spleen", ("spleen",)),
+    ("pancreas", ("pancreas",)),
+    ("kidney", ("kidney", "adrenal")),
+    ("brain", ("brain",)),
+    ("bone", ("vertebra", "rib_", "sternum", "costal", "hip_", "sacrum", "femur", "humerus", "scapula", "clavicul", "skull")),
+    ("muscle", ("gluteus", "iliopsoas", "autochthon", "muscle")),
+    ("rest", ("bladder", "prostate", "thyroid", "spinal_cord")),
+]
+PART_TRIANGLES = {"skin": 70000, "adipose": 50000, "bone": 140000, "gut": 60000, "lung": 40000, "muscle": 40000,
+                  "arterial": 25000, "venous": 25000, "liver": 16000, "heart": 12000, "kidney": 8000, "spleen": 6000,
+                  "pancreas": 6000, "brain": 12000, "rest": 8000}
+
+
+def compartment(name):
+    n = name.lower()
+    for comp, words in COMPARTMENT_OF:
+        if any(w in n for w in words):
+            return comp
+    return None
+
+
+def ct_parts(files, log):
+    """the patient's parts from a CT case: [(name, centre, vertices relative to it, faces, normals)]"""
+    import SimpleITK as sitk
+    from scipy import ndimage
+    ct = [f for f in files if str(f.name).lower() in ("ct.nii.gz", "ct.nii")]
+    masks = [f for f in files if str(f.name).lower().endswith((".nii.gz", ".nii")) and f not in ct]
+    if not ct or not masks:
+        raise RuntimeError("A CT case is needed: its scan (ct.nii.gz) and its labels (segmentations/<structure>.nii.gz).")
+    img = sitk.ReadImage(str(ct[0].path))
+    hu = sitk.GetArrayFromImage(img).astype(np.float32)                   # (z, y, x)
+    groups, used = {}, {}
+    for f in masks:
+        nm = str(f.name).lower().replace(".nii.gz", "").replace(".nii", "")
+        comp = compartment(nm)
+        if comp is None:
+            continue
+        m = sitk.GetArrayFromImage(sitk.ReadImage(str(f.path))) > 0
+        if m.shape != hu.shape or not m.any():
+            continue
+        groups[comp] = m if comp not in groups else (groups[comp] | m)
+        used.setdefault(comp, []).append(nm)
+    for comp in sorted(used):
+        log("  %s: %s" % (comp, ", ".join(sorted(used[comp]))))
+    # the body (denser than -300 HU, its largest piece, its holes filled) and the fat under its skin (-190 to -30 HU)
+    body = hu > -300
+    lab, n = ndimage.label(body)
+    if n > 1:
+        body = lab == 1 + int(np.argmax(ndimage.sum(body, lab, range(1, n + 1))))
+    body = ndimage.binary_fill_holes(ndimage.binary_closing(body, iterations=2))
+    inner = ndimage.binary_erosion(body, iterations=12)
+    fat = body & ~inner & (hu > -190) & (hu < -30)
+    fat = ndimage.binary_opening(fat, iterations=1)
+    groups["skin"], groups["adipose"] = body, fat
+    sp = np.array(img.GetSpacing(), float)
+    d = np.array(img.GetDirection(), float).reshape(3, 3)
+    org = np.array(img.GetOrigin(), float)
+    zz = np.nonzero(body.any((1, 2)))[0]
+    mid = (org + (np.array([0, 0, (zz[0] + zz[-1]) / 2.0]) * sp) @ d.T)[2]
+    out = []
+    for comp, mask in groups.items():
+        mesh = _surface(mask, sp, d, org, PART_TRIANGLES.get(comp, 10000), sigma=1.6 if comp in ("skin", "adipose") else 0.9)
+        if mesh is None:
+            continue
+        v = np.asarray(mesh.vertices)
+        # LPS (mm) -> the cell (m): the patient's left to -x, the front to +y, up to +z, the scan's middle at TORSO_Z
+        v = np.column_stack([-v[:, 0], -v[:, 1], v[:, 2] - mid]) / 1000.0 + np.array([0, 0, TORSO_Z])
+        c = v.mean(0)
+        nrm = np.asarray(mesh.vertex_normals) * np.array([-1, -1, 1])
+        out.append((comp, c, v - c, np.asarray(mesh.faces), nrm))
+        log("  %s: %d triangles." % (comp, len(mesh.faces)))
+    return out
+
+
+def _surface(mask, sp, d, org, tri, sigma=0.9):
+    import trimesh
+    from scipy import ndimage
+    from skimage.measure import marching_cubes
+    if mask.sum() < 50:
+        return None
+    sl = ndimage.find_objects(mask.astype(np.uint8))[0]
+    sub = ndimage.gaussian_filter(np.pad(mask[sl], 2).astype(np.float32), sigma)
+    try:
+        v, f, _, _ = marching_cubes(sub, 0.5, allow_degenerate=False)
+    except (ValueError, RuntimeError):
+        return None
+    ijk = (v + np.array([s.start for s in sl], float) - 2.0)[:, ::-1]
+    lps = org + (ijk * sp) @ d.T
+    mesh = trimesh.Trimesh(lps, f, process=True)
+    trimesh.smoothing.filter_taubin(mesh, lamb=0.5, nu=0.53, iterations=12)
+    if len(mesh.faces) > tri:
+        try:
+            mesh = mesh.simplify_quadric_decimation(face_count=tri)
+        except Exception:      # noqa: BLE001
+            pass
+    trimesh.repair.fix_normals(mesh)
+    return mesh
+
+
 # ── a glTF binary with one node per part, each its own material ─────────────────────────────────────────────────
 PART_STYLE = {   # name: (base colour, roughness, metalness, opacity)
     "skin": ((0.55, 0.75, 0.95), 0.15, 0.0, 0.16),
@@ -540,8 +652,8 @@ PART_STYLE = {   # name: (base colour, roughness, metalness, opacity)
 }
 
 
-def patient_glb(step=0.004):
-    ps = parts(step)
+def patient_glb(ps=None, step=0.004):
+    ps = parts(step) if ps is None else ps
     blobs, views, accs, meshes, nodes, mats = [], [], [], [], [], []
     off = 0
 
@@ -568,7 +680,7 @@ def patient_glb(step=0.004):
         meshes.append({"name": name, "primitives": [{"attributes": {"POSITION": a0, "NORMAL": a0 + 1}, "indices": a0 + 2, "material": k}]})
         nodes.append({"name": name, "mesh": k, "translation": [float(c[0]), float(c[1]), float(c[2])]})
     # (z up, as the cell's other files: the scene says so with "up": "z")
-    js = {"asset": {"version": "2.0", "generator": "EsaSim virtual patient (mockup)"}, "scene": 0,
+    js = {"asset": {"version": "2.0", "generator": "EsaSim virtual patient"}, "scene": 0,
           "scenes": [{"nodes": [len(nodes)]}], "nodes": nodes + [{"name": "patient", "children": list(range(len(nodes)))}],
           "meshes": meshes, "materials": mats, "bufferViews": views, "accessors": accs, "buffers": [{"byteLength": off}]}
     j = json.dumps(js, separators=(",", ":")).encode()
@@ -992,7 +1104,7 @@ def heartbeat_wav(rate=32000):
             + b"data" + struct.pack("<I", len(pcm)) + pcm)
 
 
-def scene_file():
+def scene_file(torso=False):
     """the 3D view's scene (models/patient.scene.json): the patient on the platform, each part coloured by the drug's
     concentration there (from the channel patient), the heart beating and the lungs breathing at the patient's rates"""
     beat = "max(0, sin(@t * 6.2832 * (@patient.hr or 72) / 60))"
@@ -1023,7 +1135,8 @@ def scene_file():
                    {"id": "patient", "model": "models/patient.glb", "up": "z", "position": [0, 0, 0.042], "materials": mats, "parts": parts}],
         "sounds": [{"id": "heartbeat", "sound": "models/heartbeat.wav", "volume": 0.25,
                     "on": {"expr": "sin(@t * 6.2832 * (@patient.hr or 72) / 60) > 0.97"}}],
-        "cameras": [{"id": "front", "type": "orbit", "position": [0.9, 2.6, 1.35], "look_at": [0, 0, 1.0]}], "start": "front",
+        "cameras": [{"id": "front", "type": "orbit", "position": [0.45, 1.25, 1.3] if torso else [0.9, 2.6, 1.35],
+                     "look_at": [0, 0, TORSO_Z] if torso else [0, 0, 1.0]}], "start": "front",
         "overlay": [
             {"type": "panel", "at": "top-left", "title": "Virtual patient", "items": [
                 {"type": "text", "text": "@patient.who"},
@@ -1041,13 +1154,18 @@ def scene_file():
 
 
 def models_run(ctx):
-    ctx.log("Making the patient (a mockup: a translucent body, its organs inside it, each a part of its own).")
-    glb, tri = patient_glb()
+    ct = list(ctx.inputs.get("ct", []) or [])
+    if ct:
+        ctx.log("Making the patient from the CT case wired in: its labelled structures, grouped by the model's compartments.")
+        glb, tri = patient_glb(ct_parts(ct, ctx.log))
+    else:
+        ctx.log("Making the patient (a mockup: a translucent body, its organs inside it, each a part of its own).")
+        glb, tri = patient_glb()
     for name, data in (("patient.glb", glb), ("platform.glb", platform_glb()), ("ring.glb", ring_glb()), ("heartbeat.wav", heartbeat_wav())):
         with open(ctx.output("models", name), "wb") as fh:
             fh.write(data)
     with open(ctx.output("models", "patient.scene.json"), "w", encoding="utf-8") as fh:
-        json.dump(scene_file(), fh, indent=1)
+        json.dump(scene_file(torso=bool(ct)), fh, indent=1)
     ctx.log("patient.glb: %d parts, %d triangles, %d KB; platform.glb, ring.glb, heartbeat.wav, patient.scene.json." % (
         len(tri), sum(tri.values()), len(glb) // 1024))
     return {"parts": len(tri), "triangles": int(sum(tri.values()))}
