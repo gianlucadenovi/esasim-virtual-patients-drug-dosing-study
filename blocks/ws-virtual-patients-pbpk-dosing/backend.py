@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 20 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 21 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of three drugs in thousands of virtual patients: trials, the best dose per population, and a live bedside with vitals and a 3D patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -1409,6 +1409,8 @@ def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
                     "materials": {"ring": {"emissive": "@patient.c_blood"}}},
                    {"id": "patient", "model": prefix + "patient.glb", "up": "z", "position": [round(v, 4) for v in offset],
                     "materials": mats, "parts": parts}],
+        "sounds": [{"id": "heartbeat", "sound": prefix + "heartbeat.mp3", "volume": 0.5,
+                    "on": {"expr": "sin(@t * 6.2832 * (@patient.hr or 72) / 60) > 0.97"}}],
         "cameras": [{"id": "front", "type": "orbit", "position": [0.55, 1.45, z + 0.35], "look_at": [0, 0, z]}], "start": "front",
         "overlay": [
             {"type": "panel", "at": "top-left", "title": "Virtual patient", "items": [
