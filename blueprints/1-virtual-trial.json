@@ -6,7 +6,7 @@
     "name": "1 · Virtual trial",
     "description": "A population on a dosing regimen: the plasma concentration over time (5th to 95th percentile), who ends up in the target range, below it, above it, and who reaches toxic peaks, overall and by group.",
     "published_version": 2,
-    "updated": "2026-11-24 20:23:12",
+    "updated": "2026-11-24 20:24:02",
     "graph": {
         "nodes": [
             {
@@ -200,9 +200,9 @@
                 },
                 "course": {
                     "x": 7,
-                    "y": 10,
+                    "y": 11,
                     "w": 5,
-                    "h": 7
+                    "h": 10
                 },
                 "groups_chart": {
                     "x": 0,
@@ -214,7 +214,7 @@
                     "x": 7,
                     "y": 3,
                     "w": 5,
-                    "h": 7
+                    "h": 8
                 },
                 "patients_table": {
                     "x": 0,
