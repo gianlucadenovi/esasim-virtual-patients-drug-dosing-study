@@ -19,6 +19,8 @@
 ## Flows
 
 - **1 · Virtual trial**: A population on a dosing regimen: the plasma concentration over time (5th to 95th percentile), who ends up in the target range, below it, above it, and who reaches toxic peaks, overall and by group.
+- **2 · Find the dose**: For every population, the dose that puts the most patients in the target range while keeping toxic peaks rare; every dose tried, as curves.
+- **3 · Follow one patient (3D)**: One virtual patient on the regimen, live: each organ coloured by the drug's concentration in it, the heart beating, the doses and the moments the plasma level leaves the target range.
 - **Maintenance · Make the 3D models**: The patient (a mockup until the anatomy models are in), the platform, the heartbeat and the scene, into the project's assets (models/).
 
 ## What you need
@@ -32,6 +34,10 @@
 2. Press **Run**, choose the worker, and follow the run on the flow's **View** page.
 3. The files it made are under **Results**; they stay on the worker until you save or download them.
 
+## What you get
+
+- On the **View** page: *Summary* (1 · Virtual trial), *Outcome (%, mg/L, h)* (1 · Virtual trial), *Concentration over time* (1 · Virtual trial), *By group* (1 · Virtual trial), *Spread* (1 · Virtual trial), *Patients* (1 · Virtual trial), *Groups* (1 · Virtual trial).
+
 <!-- esasim: files of the project -->
 
 ---
@@ -40,7 +46,9 @@ An [EsaSim](https://esacode.com/) project of the workspace Gianluca De Novi's wo
 
 ### Blueprints in this repository
 
-- [1 · Virtual trial](blueprints/1-virtual-trial.json) · 0 blocks
+- [1 · Virtual trial](blueprints/1-virtual-trial.json) · 8 blocks
+- [2 · Find the dose](blueprints/2-find-the-dose.json) · 0 blocks
+- [3 · Follow one patient (3D)](blueprints/3-follow-one-patient-3d.json) · 0 blocks
 - [Maintenance · Make the 3D models](blueprints/maintenance-make-the-3d-models.json) · 1 block · version 1
 
 ### Workspace blocks it uses

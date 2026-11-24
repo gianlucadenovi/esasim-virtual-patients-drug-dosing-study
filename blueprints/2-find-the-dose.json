@@ -1,0 +1,15 @@
+{
+    "esasim": {
+        "kind": "blueprint",
+        "flow_id": 105
+    },
+    "name": "2 · Find the dose",
+    "description": "For every population, the dose that puts the most patients in the target range while keeping toxic peaks rare; every dose tried, as curves.",
+    "published_version": 0,
+    "updated": "2026-11-24 20:15:07",
+    "graph": {
+        "nodes": [],
+        "edges": [],
+        "notes": []
+    }
+}

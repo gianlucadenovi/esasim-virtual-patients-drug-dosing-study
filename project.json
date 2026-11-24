@@ -15,6 +15,18 @@
             "name": "1 · Virtual trial",
             "file": "blueprints/1-virtual-trial.json",
             "published_version": 0,
+            "nodes": 8
+        },
+        {
+            "name": "2 · Find the dose",
+            "file": "blueprints/2-find-the-dose.json",
+            "published_version": 0,
+            "nodes": 0
+        },
+        {
+            "name": "3 · Follow one patient (3D)",
+            "file": "blueprints/3-follow-one-patient-3d.json",
+            "published_version": 0,
             "nodes": 0
         },
         {

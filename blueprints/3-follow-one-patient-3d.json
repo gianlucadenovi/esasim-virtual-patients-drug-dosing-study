@@ -1,0 +1,15 @@
+{
+    "esasim": {
+        "kind": "blueprint",
+        "flow_id": 106
+    },
+    "name": "3 · Follow one patient (3D)",
+    "description": "One virtual patient on the regimen, live: each organ coloured by the drug's concentration in it, the heart beating, the doses and the moments the plasma level leaves the target range.",
+    "published_version": 0,
+    "updated": "2026-11-24 20:15:08",
+    "graph": {
+        "nodes": [],
+        "edges": [],
+        "notes": []
+    }
+}

@@ -6,10 +6,192 @@
     "name": "1 · Virtual trial",
     "description": "A population on a dosing regimen: the plasma concentration over time (5th to 95th percentile), who ends up in the target range, below it, above it, and who reaches toxic peaks, overall and by group.",
     "published_version": 0,
-    "updated": "2026-11-24 20:14:50",
+    "updated": "2026-11-24 20:15:02",
     "graph": {
-        "nodes": [],
-        "edges": [],
-        "notes": []
+        "nodes": [
+            {
+                "id": "trial",
+                "type": "ws-virtual-patients-pbpk-dosing",
+                "x": -500,
+                "y": 0,
+                "params": {
+                    "mode": "Run a virtual trial",
+                    "population": "Mixed clinical population",
+                    "patients": 5000,
+                    "route": "Oral (immediate release)",
+                    "dose_mg": 300,
+                    "dose_basis": "mg",
+                    "interval_h": 12,
+                    "days": 5,
+                    "target": "10-20 mg/L (classic)",
+                    "seed": 1
+                },
+                "title": "Virtual trial"
+            },
+            {
+                "id": "tel",
+                "type": "telemetry",
+                "x": -100,
+                "y": -260,
+                "params": {
+                    "interval": 0.5,
+                    "channels": "trial",
+                    "keep": 50
+                },
+                "title": "Summary"
+            },
+            {
+                "id": "numbers",
+                "type": "gauge-view",
+                "x": 300,
+                "y": -300,
+                "params": {
+                    "fields": "trial.in_range_pct,trial.too_low_pct,trial.too_high_pct,trial.toxic_peak_pct,trial.median_average_mg_l,trial.median_half_life_h",
+                    "style": "number",
+                    "decimals": 1
+                },
+                "title": "Outcome (%, mg/L, h)"
+            },
+            {
+                "id": "course",
+                "type": "chart",
+                "x": 300,
+                "y": -60,
+                "params": {
+                    "kind": "line",
+                    "x": "time_h",
+                    "y": "p05,p25,median,p75,p95,target_low,target_high,toxic",
+                    "title": "Plasma concentration (mg/L) over time (h): 5th, 25th, 50th, 75th, 95th percentile; target range; toxic level"
+                },
+                "title": "Concentration over time"
+            },
+            {
+                "id": "groups_chart",
+                "type": "chart",
+                "x": 300,
+                "y": 200,
+                "params": {
+                    "kind": "bars",
+                    "x": "group",
+                    "y": "in_range_pct,too_low_pct,too_high_pct,toxic_peak_pct",
+                    "ymin": "0",
+                    "ymax": "100",
+                    "title": "By group (%): in range, below, above, toxic peaks"
+                },
+                "title": "By group"
+            },
+            {
+                "id": "hist",
+                "type": "chart",
+                "x": 700,
+                "y": -60,
+                "params": {
+                    "kind": "histogram",
+                    "y": "average_mg_l",
+                    "bins": 40,
+                    "title": "Average concentration at steady state (mg/L), all patients"
+                },
+                "title": "Spread"
+            },
+            {
+                "id": "patients_table",
+                "type": "table-view",
+                "x": 700,
+                "y": 200,
+                "params": [],
+                "title": "Patients"
+            },
+            {
+                "id": "groups_table",
+                "type": "table-view",
+                "x": 700,
+                "y": 440,
+                "params": [],
+                "title": "Groups"
+            }
+        ],
+        "edges": [
+            {
+                "id": "trial.telemetry>tel.from",
+                "from": {
+                    "node": "trial",
+                    "port": "telemetry"
+                },
+                "to": {
+                    "node": "tel",
+                    "port": "from"
+                }
+            },
+            {
+                "id": "tel.stream>numbers.data",
+                "from": {
+                    "node": "tel",
+                    "port": "stream"
+                },
+                "to": {
+                    "node": "numbers",
+                    "port": "data"
+                }
+            },
+            {
+                "id": "trial.course>course.data",
+                "from": {
+                    "node": "trial",
+                    "port": "course"
+                },
+                "to": {
+                    "node": "course",
+                    "port": "data"
+                }
+            },
+            {
+                "id": "trial.groups>groups_chart.data",
+                "from": {
+                    "node": "trial",
+                    "port": "groups"
+                },
+                "to": {
+                    "node": "groups_chart",
+                    "port": "data"
+                }
+            },
+            {
+                "id": "trial.patients>hist.data",
+                "from": {
+                    "node": "trial",
+                    "port": "patients"
+                },
+                "to": {
+                    "node": "hist",
+                    "port": "data"
+                }
+            },
+            {
+                "id": "trial.patients>patients_table.data",
+                "from": {
+                    "node": "trial",
+                    "port": "patients"
+                },
+                "to": {
+                    "node": "patients_table",
+                    "port": "data"
+                }
+            },
+            {
+                "id": "trial.groups>groups_table.data",
+                "from": {
+                    "node": "trial",
+                    "port": "groups"
+                },
+                "to": {
+                    "node": "groups_table",
+                    "port": "data"
+                }
+            }
+        ],
+        "notes": [],
+        "dash": {
+            "items": []
+        }
     }
 }
