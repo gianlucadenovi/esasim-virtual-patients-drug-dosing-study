@@ -26,7 +26,7 @@
         {
             "name": "3 · Follow one patient (3D)",
             "file": "blueprints/3-follow-one-patient-3d.json",
-            "published_version": 1,
+            "published_version": 2,
             "nodes": 4
         },
         {
