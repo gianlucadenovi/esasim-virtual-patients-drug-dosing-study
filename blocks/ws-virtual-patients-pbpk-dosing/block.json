@@ -6,8 +6,8 @@
     "icon": "code",
     "side": "backend",
     "customizable": true,
-    "summary": "A whole-body physiologically based pharmacokinetic model of three drugs in thousands of virtual patients: trials, the best dose per population, and a live bedside with vitals and a 3D patient",
-    "help": "Drugs: theophylline (liver, smoking), midazolam (sedative, stored in fat) and digoxin (kidneys, heart). Run a virtual trial: a population on a regimen; who ends up in the target range, below it, above it, and who reaches toxic levels, overall and by group. Find the dose: for every population, the dose that puts the most patients in range while keeping toxic levels rare. Bedside (live): one patient at a time, chosen and dosed from the Bedside monitor view (patient, drug, dose, extra dose, stop, speed); the organs coloured by how much drug they hold, the vitals responding to the drug, a healthy adult on the same drug for comparison. Make the 3D models: the patient (from a labelled CT case, or a mockup), the platform and the scene, also streamed for the Model files view. Concentrations are in each drug's unit (mg/L for theophylline, ng/mL for the others).",
+    "summary": "A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient",
+    "help": "Twelve drugs: theophylline, midazolam, digoxin, morphine, naloxone, flumazenil, propranolol, atropine, ondansetron, paracetamol, amlodipine, salbutamol. Run a virtual trial: a population on a regimen; who ends up in the target range, below it, above it, and who reaches toxic levels, overall and by group. Find the dose: for every population, the dose that puts the most patients in range while keeping toxic levels rare. Bedside (live): one patient (fourteen profiles) dosed from the 3D view's controls; any number of drugs at once, each with its own whole-body model, their effects combining on the vitals (antidotes reverse, beta-blockers blunt, side effects add up), the organs coloured by how much of the chosen drug they hold, a healthy adult on the same doses for comparison. Make the 3D models: the patient (from a labelled CT case, or a mockup) and the scene. Concentrations are in each drug's unit (mg/L for theophylline and paracetamol, ng/mL for the others).",
     "inputs": [
         {
             "id": "ct",
@@ -76,7 +76,7 @@
                 "glb",
                 "json"
             ],
-            "help": "Make the 3D models: patient.glb, platform.glb, ring.glb, patient.scene.json for the project's assets (models/)"
+            "help": "Make the 3D models: patient.glb and patient.scene.json, for the project's assets"
         }
     ],
     "params": [
@@ -100,7 +100,16 @@
             "options": [
                 "Theophylline",
                 "Midazolam",
-                "Digoxin"
+                "Digoxin",
+                "Morphine",
+                "Naloxone",
+                "Flumazenil",
+                "Propranolol",
+                "Atropine",
+                "Ondansetron",
+                "Paracetamol",
+                "Amlodipine",
+                "Salbutamol"
             ]
         },
         {
@@ -151,7 +160,7 @@
             "type": "number",
             "default": 300,
             "min": 0,
-            "help": "mg (or mg/kg): theophylline 300 mg, midazolam a few mg, digoxin 0.125-0.25 mg"
+            "help": "mg (or mg/kg) per dose: theophylline 300, midazolam 2-5, digoxin 0.125-0.25, morphine 4-10, propranolol 40, paracetamol 1000, amlodipine 5-10..."
         },
         {
             "key": "dose_basis",
@@ -203,7 +212,7 @@
                 "10-20 mg/L (classic)",
                 "5-15 mg/L (current guidance)"
             ],
-            "help": "Midazolam: sedation 70-260 ng/mL; digoxin: 0.5-2 ng/mL"
+            "help": "Theophylline only; the other drugs use their own range (midazolam sedation 70-260 ng/mL, digoxin 0.5-2 ng/mL, morphine 20-80 ng/mL...)"
         },
         {
             "key": "population_scope",
@@ -227,19 +236,24 @@
             "key": "bedside_patient",
             "label": "Bedside: first patient",
             "type": "select",
-            "default": "Elderly woman, 84",
+            "default": "Elderly woman 84",
             "options": [
-                "Healthy man, 35",
-                "Healthy woman, 30",
-                "Smoker, 45 (20 a day)",
-                "Obese woman, 40 (BMI 38)",
-                "Elderly woman, 84",
-                "Liver cirrhosis, 58",
-                "Heart failure, 72",
-                "Kidney failure, 66 (GFR 20)",
+                "Healthy man 35",
+                "Healthy woman 30",
+                "Athlete 24 (resting HR 50)",
+                "Smoker 45 (20 a day)",
+                "Obese woman 40 (BMI 38)",
+                "Asthma attack 28",
+                "After surgery 50 (pain 7/10)",
+                "Pneumonia with fever 64",
+                "Elderly woman 84",
+                "Frail man 91",
+                "Liver cirrhosis 58",
+                "Heart failure 72",
+                "Kidney failure 66 (GFR 20)",
                 "Random patient"
             ],
-            "help": "The Bedside monitor view changes the patient and the drug while it runs"
+            "help": "The 3D view's Patient control changes it while it runs"
         },
         {
             "key": "bedside_minutes",
@@ -290,6 +304,6 @@
         "requests"
     ],
     "esasim": {
-        "version": 23
+        "version": 24
     }
 }
