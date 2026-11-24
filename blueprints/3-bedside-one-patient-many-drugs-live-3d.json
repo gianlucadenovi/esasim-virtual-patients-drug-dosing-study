@@ -3,10 +3,10 @@
         "kind": "blueprint",
         "flow_id": 106
     },
-    "name": "3 · Bedside: one patient, live (3D)",
+    "name": "3 · Bedside: one patient, many drugs, live (3D)",
     "description": "One virtual patient on the regimen, live: each organ coloured by the drug's concentration in it, the heart beating, the doses and the moments the plasma level leaves the target range.",
-    "published_version": 3,
-    "updated": "2026-11-24 22:39:05",
+    "published_version": 4,
+    "updated": "2026-11-24 22:50:09",
     "graph": {
         "nodes": [
             {
@@ -17,7 +17,7 @@
                 "params": {
                     "mode": "Bedside (live)",
                     "drug": "Theophylline",
-                    "bedside_patient": "Elderly woman, 84",
+                    "bedside_patient": "Elderly woman 84",
                     "bedside_minutes": 20,
                     "accelerator": "CPU"
                 },
@@ -44,36 +44,25 @@
                     "scene": "patient.scene.json",
                     "quality": "high",
                     "overlay": true,
-                    "controls": "button Finish now",
+                    "controls": "",
                     "control_channel": "control"
                 },
-                "title": "The patient (3D)"
+                "title": "The patient (3D): choose, dose and combine drugs here"
             },
             {
-                "id": "monitor",
-                "type": "ws-bedside-monitor",
-                "x": 100,
-                "y": 0,
-                "params": {
-                    "channel": "vitals",
-                    "control_channel": "bedside"
-                },
-                "title": "Bedside monitor"
-            },
-            {
-                "id": "plasma",
+                "id": "levels",
                 "type": "chart",
                 "x": 100,
-                "y": 220,
+                "y": 120,
                 "params": {
                     "kind": "line",
                     "x": "t_h",
-                    "y": "plasma,ref_plasma",
+                    "y": "lvl_theophylline,lvl_midazolam,lvl_digoxin,lvl_morphine,lvl_naloxone,lvl_flumazenil,lvl_propranolol,lvl_atropine,lvl_ondansetron,lvl_paracetamol,lvl_amlodipine,lvl_salbutamol",
                     "channel": "patient",
                     "ymin": "0",
-                    "title": "Plasma level: this patient (plasma) and a healthy adult on the same drug (ref_plasma), over time (h)"
+                    "title": "Each drug given: plasma level as % of the top of its target range (100 = top), over time (h)"
                 },
-                "title": "This patient vs a healthy adult"
+                "title": "Drug levels"
             }
         ],
         "edges": [
@@ -100,24 +89,13 @@
                 }
             },
             {
-                "id": "tel.stream>monitor.stream",
+                "id": "tel.stream>levels.data",
                 "from": {
                     "node": "tel",
                     "port": "stream"
                 },
                 "to": {
-                    "node": "monitor",
-                    "port": "stream"
-                }
-            },
-            {
-                "id": "tel.stream>plasma.data",
-                "from": {
-                    "node": "tel",
-                    "port": "stream"
-                },
-                "to": {
-                    "node": "plasma",
+                    "node": "levels",
                     "port": "data"
                 }
             }
@@ -130,18 +108,6 @@
                     "y": 0,
                     "w": 6,
                     "h": 21
-                },
-                "plasma": {
-                    "x": 6,
-                    "y": 12,
-                    "w": 6,
-                    "h": 9
-                },
-                "monitor": {
-                    "x": 6,
-                    "y": 0,
-                    "w": 6,
-                    "h": 12
                 }
             }
         }
