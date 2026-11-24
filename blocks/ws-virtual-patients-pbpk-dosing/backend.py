@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 28 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 29 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -664,11 +664,13 @@ COMPARTMENT_OF = [   # (compartment, words in the structures' names), the first 
     ("pancreas", ("pancreas",)),
     ("kidney", ("kidney", "adrenal")),
     ("brain", ("brain",)),
-    ("bone", ("vertebra", "rib_", "sternum", "costal", "hip_", "sacrum", "femur", "humerus", "scapula", "clavicul", "skull")),
+    ("ribcage", ("rib_", "sternum", "costal")),      # (a part of its own, so that it can move with the breath; drawn as bone)
+    ("bone", ("vertebra", "hip_", "sacrum", "femur", "humerus", "scapula", "clavicul", "skull")),
     ("muscle", ("gluteus", "iliopsoas", "autochthon", "muscle")),
     ("rest", ("bladder", "prostate", "thyroid", "spinal_cord")),
 ]
-PART_TRIANGLES = {"skin": 70000, "adipose": 50000, "bone": 140000, "gut": 60000, "lung": 40000, "muscle": 40000,
+MATERIAL_OF = {"ribcage": "bone"}   # (parts drawn with another part's material)
+PART_TRIANGLES = {"skin": 70000, "adipose": 50000, "bone": 90000, "ribcage": 60000, "gut": 60000, "lung": 40000, "muscle": 40000,
                   "arterial": 25000, "venous": 25000, "liver": 16000, "heart": 12000, "kidney": 8000, "spleen": 6000,
                   "pancreas": 6000, "brain": 12000, "rest": 8000}
 
@@ -728,6 +730,8 @@ def ct_parts(files, log):
         # LPS (mm) -> the cell (m): the patient's left to -x, the front to +y, up to +z, the scan's middle at TORSO_Z
         v = np.column_stack([-v[:, 0], -v[:, 1], v[:, 2] - mid]) / 1000.0 + np.array([0, 0, TORSO_Z])
         c = v.mean(0)
+        if comp == "ribcage":                # (its pivot at the back, by the spine: it widens and rises forwards)
+            c[1] = v[:, 1].min()
         nrm = np.asarray(mesh.vertex_normals) * np.array([-1, -1, 1])
         out.append((comp, c, v - c, np.asarray(mesh.faces), nrm))
         log("  %s: %d triangles." % (comp, len(mesh.faces)))
@@ -789,8 +793,9 @@ def patient_glb(ps=None, step=0.004):
                      "min": v.min(0).tolist(), "max": v.max(0).tolist()})
         accs.append({"bufferView": blob(n.tobytes(), 34962), "componentType": 5126, "count": len(n), "type": "VEC3"})
         accs.append({"bufferView": blob(idx.tobytes(), 34963), "componentType": 5125, "count": len(idx), "type": "SCALAR"})
-        col, rough, metal, op = PART_STYLE.get(name, ((0.8, 0.8, 0.8), 0.45, 0.0, 1.0))
-        mt = {"name": name, "pbrMetallicRoughness": {"baseColorFactor": list(col) + [op], "roughnessFactor": rough, "metallicFactor": metal},
+        mname = MATERIAL_OF.get(name, name)
+        col, rough, metal, op = PART_STYLE.get(mname, ((0.8, 0.8, 0.8), 0.45, 0.0, 1.0))
+        mt = {"name": mname, "pbrMetallicRoughness": {"baseColorFactor": list(col) + [op], "roughnessFactor": rough, "metallicFactor": metal},
               "doubleSided": op < 1}
         if op < 1:
             mt["alphaMode"] = "BLEND"
@@ -1515,9 +1520,8 @@ def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
     fill = "sin(3.1416 * min(1, max(0, ((%s - floor(%s)) * 60 / max(@patient.rr, 3) - 0.3) / 2.6)))" % (breath, breath)
     parts = {"heart": {"scale": {"expr": "1 + 0.09 * %s" % pulse}},
              "lung": {"scale": {"expr": "1 + 0.045 * %s" % fill}}}
-    # the ribcage and the chest wall rise with each breath: mostly forwards, a little sideways
-    for t in ("bone", "muscle", "adipose", "skin"):
-        parts[t] = {"scale": [{"expr": "1 + %g * %s" % (k, fill)} for k in (0.012, 0.03, 0.004)]}
+    # the ribcage rises with each breath (from its pivot at the spine): forwards, and a little sideways and upwards
+    parts["ribcage"] = {"scale": [{"expr": "1 + %g * %s" % (k, fill)} for k in (0.025, 0.05, 0.01)]}
     organs = [{"type": "text", "text": "%s  {@patient.t_%s}" % (TISSUE_LABEL[t], t), "size": "small"}
               for t in ("brain", "heart", "lung", "liver", "gut", "kidney", "muscle", "adipose", "bone")]
     legend = [{"type": "text", "text": "■ {@patient.leg%d} {@patient.unit}%s" % (k, ("  hardly any", "", "", "", "  the most")[k]),

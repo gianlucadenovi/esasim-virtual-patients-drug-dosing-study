@@ -39,7 +39,7 @@
     "blocks": [
         {
             "id": "ws-virtual-patients-pbpk-dosing",
-            "version": 28,
+            "version": 29,
             "name": "Virtual patients (PBPK dosing)"
         },
         {
