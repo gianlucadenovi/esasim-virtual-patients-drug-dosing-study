@@ -6,14 +6,14 @@
     "name": "Maintenance · Make the 3D models",
     "description": "The patient (a mockup until the anatomy models are in), the platform, the heartbeat and the scene, into the project's assets (models/).",
     "published_version": 1,
-    "updated": "2026-11-24 20:14:46",
+    "updated": "2026-11-24 20:21:49",
     "graph": {
         "nodes": [
             {
                 "id": "models",
                 "type": "ws-virtual-patients-pbpk-dosing",
-                "x": 0,
-                "y": 0,
+                "x": -400,
+                "y": -160,
                 "params": {
                     "mode": "Make the 3D models",
                     "accelerator": "CPU"
