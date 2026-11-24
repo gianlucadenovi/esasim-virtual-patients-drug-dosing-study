@@ -1,0 +1,36 @@
+{
+    "id": "ws-temporary-patient-models-into-worker",
+    "version": "1",
+    "name": "Temporary: patient models into worker storage",
+    "category": "My blocks",
+    "icon": "code",
+    "side": "backend",
+    "customizable": true,
+    "summary": "One-off: makes the virtual patient's 3D files from a CT case already on this worker, into its storage folder",
+    "help": "",
+    "inputs": [],
+    "outputs": [],
+    "params": [
+        {
+            "key": "folder",
+            "label": "Storage folder",
+            "type": "text",
+            "default": "virtual-patient-models"
+        }
+    ],
+    "hardware": [
+        "cpu"
+    ],
+    "packages": [
+        "numpy",
+        "torch",
+        "scikit-image",
+        "scipy",
+        "SimpleITK",
+        "trimesh",
+        "fast-simplification"
+    ],
+    "esasim": {
+        "version": 1
+    }
+}
