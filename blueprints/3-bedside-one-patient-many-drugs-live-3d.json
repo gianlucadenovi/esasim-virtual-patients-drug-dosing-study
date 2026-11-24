@@ -5,8 +5,8 @@
     },
     "name": "3 · Bedside: one patient, many drugs, live (3D)",
     "description": "One virtual patient on the regimen, live: each organ coloured by the drug's concentration in it, the heart beating, the doses and the moments the plasma level leaves the target range.",
-    "published_version": 4,
-    "updated": "2026-11-24 22:51:18",
+    "published_version": 5,
+    "updated": "2026-11-24 22:57:40",
     "graph": {
         "nodes": [
             {
@@ -50,10 +50,20 @@
                 "title": "The patient (3D): choose, dose and combine drugs here"
             },
             {
+                "id": "monitor",
+                "type": "ws-bedside-monitor",
+                "x": 100,
+                "y": 0,
+                "params": {
+                    "channel": "vitals"
+                },
+                "title": "Bedside monitor"
+            },
+            {
                 "id": "levels",
                 "type": "chart",
                 "x": 100,
-                "y": 120,
+                "y": 220,
                 "params": {
                     "kind": "line",
                     "x": "t_h",
@@ -89,6 +99,17 @@
                 }
             },
             {
+                "id": "tel.stream>monitor.stream",
+                "from": {
+                    "node": "tel",
+                    "port": "stream"
+                },
+                "to": {
+                    "node": "monitor",
+                    "port": "stream"
+                }
+            },
+            {
                 "id": "tel.stream>levels.data",
                 "from": {
                     "node": "tel",
@@ -112,6 +133,12 @@
                 "levels": {
                     "x": 6,
                     "y": 0,
+                    "w": 6,
+                    "h": 7
+                },
+                "monitor": {
+                    "x": 6,
+                    "y": 7,
                     "w": 6,
                     "h": 7
                 }

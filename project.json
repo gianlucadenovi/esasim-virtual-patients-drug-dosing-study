@@ -26,8 +26,8 @@
         {
             "name": "3 · Bedside: one patient, many drugs, live (3D)",
             "file": "blueprints/3-bedside-one-patient-many-drugs-live-3d.json",
-            "published_version": 4,
-            "nodes": 4
+            "published_version": 5,
+            "nodes": 5
         },
         {
             "name": "Maintenance · Make the 3D models",
@@ -41,6 +41,11 @@
             "id": "ws-virtual-patients-pbpk-dosing",
             "version": 27,
             "name": "Virtual patients (PBPK dosing)"
+        },
+        {
+            "id": "ws-bedside-monitor",
+            "version": 2,
+            "name": "Bedside monitor"
         },
         {
             "id": "ws-model-files-preview-and-download",

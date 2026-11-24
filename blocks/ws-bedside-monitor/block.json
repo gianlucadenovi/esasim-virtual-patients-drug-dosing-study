@@ -1,0 +1,36 @@
+{
+    "id": "ws-bedside-monitor",
+    "version": "1",
+    "name": "Bedside monitor",
+    "category": "Visualizers",
+    "icon": "chart",
+    "side": "frontend",
+    "customizable": true,
+    "summary": "A bedside patient monitor: ECG, pulse oximetry and breathing waveforms, vitals (HR, SpO2, resp, BP, temperature, QTc, pain, sedation), alarms and the drugs on board",
+    "help": "Wire a Telemetry block (or a block's Live telemetry) in. Items on the channel (default vitals): hr, sys, dia, map, rr, spo2, temp, qtc, pain, rhythm, ectopy (share of ectopic beats), dropped (share of dropped beats), sedation, sedation_txt, nausea, airway, effects, alarms [..], who, day, drugs [..]. The waveforms are drawn in real time at the current rates; a long QTc moves the T wave.",
+    "inputs": [
+        {
+            "id": "stream",
+            "label": "Live telemetry",
+            "type": "stream",
+            "help": "The vitals"
+        }
+    ],
+    "outputs": [],
+    "params": [
+        {
+            "key": "channel",
+            "label": "Vitals channel",
+            "type": "text",
+            "default": "vitals"
+        }
+    ],
+    "view": {
+        "w": 6,
+        "h": 7,
+        "resize": "both"
+    },
+    "esasim": {
+        "version": 2
+    }
+}
