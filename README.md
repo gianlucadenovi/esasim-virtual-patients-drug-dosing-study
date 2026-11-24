@@ -21,7 +21,7 @@ The first drug is **theophylline** (a bronchodilator with a narrow therapeutic w
 | **1 · Virtual trial** | A population on a regimen (dose, interval, route, loading dose, days). Shows the plasma concentration over time (5th to 95th percentile), the spread of steady-state levels, outcomes by group, and a table of every patient. |
 | **2 · Find the dose** | Every population at doses from 25 mg to 2 g, with a curve per population of the share in range and the share with toxic peaks, and the best dose for each. |
 | **3 · Follow one patient (3D)** | The typical, most exposed, least exposed or a random patient, live. The organs are coloured from dark blue (no drug) through green (in range) to red (toxic). The heart beats and the lungs breathe, and doses and threshold crossings appear as events. |
-| **Maintenance · Make the 3D models** | Builds the patient, the platform, the heartbeat sound and the scene into the project's assets (models/). Run it once, and again after the body models change. |
+| **Maintenance · Make the 3D models** | Reads a labelled CT case from the TotalSegmentator dataset and builds the patient from it, with the platform, the heartbeat sound and the scene, into the project's assets (models/). Run it once. |
 
 Each trial takes a few seconds, even for 10,000 patients, on a GPU or a CPU.
 
@@ -74,7 +74,17 @@ These factors are approximate. They follow the direction and size the literature
 
 ## The 3D patient
 
-The patient is a **mockup** for now: a translucent body with simplified organs inside, each a part of its own. Anatomical models of each organ will replace it, and their credits will be listed here.
+The patient is built from a real CT scan and its experts' labels: case s1400 of the **TotalSegmentator dataset** (v2.0.1, small subset). Every labelled structure goes into the model compartment it belongs to, and each compartment becomes one part of the 3D model, coloured live by the drug's concentration in it:
+
+- The liver and gallbladder make the liver.
+- The stomach, oesophagus, duodenum, small bowel, colon and rectum make the gut.
+- The aorta and arteries make the arterial blood; the venae cavae, portal vein and other veins make the venous blood.
+- Every vertebra, rib and other bone makes the skeleton.
+- The skin and the fat under it come from the scan's own densities.
+
+The scan covers the torso, so the brain has a bar on the right but no surface. Without a CT case wired in, the maintenance flow makes a simplified mockup body instead.
+
+**Credit (CC BY 4.0):** TotalSegmentator dataset v2.0.1 (small subset), Zenodo, doi:10.5281/zenodo.10047263. Wasserthal J., Breit H.-C., Meyer M.T., et al. *TotalSegmentator: Robust Segmentation of 104 Anatomic Structures in CT Images.* Radiology: Artificial Intelligence 2023; 5(5): e230024.
 
 ## Limits
 
@@ -82,6 +92,7 @@ The patient is a **mockup** for now: a translucent body with simplified organs i
 - Absorption is first-order, with no dissolution or gut-wall metabolism. Elimination is linear (theophylline is slightly saturable at high concentrations). There are no drug–drug interactions yet.
 - The population covariates are simplified. Real population models (e.g. from NHANES) would add correlations between age, weight and organ function.
 - The effect on the patient (bronchodilation) is not modelled beyond the concentration thresholds.
+- The 3D patient's anatomy is one scanned person; it does not change with the virtual patient's sex, size or conditions.
 
 <!-- esasim: files of the project -->
 
