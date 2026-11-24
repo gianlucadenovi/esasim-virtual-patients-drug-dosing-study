@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 22 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 23 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of three drugs in thousands of virtual patients: trials, the best dose per population, and a live bedside with vitals and a 3D patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -144,8 +144,6 @@ DRUGS = {
         "range": {"10-20 mg/L (classic)": (10.0, 20.0), "5-15 mg/L (current guidance)": (5.0, 15.0)},
         "toxic": [(20.0, "adverse effects (nausea, tachycardia)"), (30.0, "arrhythmia risk"), (40.0, "seizure risk")],
         "dose_steps": (25.0, 2000.0, 25.0),
-        "bedside": {"dose": 300.0, "interval": 12.0, "route": "Oral (immediate release)", "speed": 1.0,
-                    "regimen": "300 mg by mouth every 12 h", "extra": 300.0},
         "effect_at": "plasma", "mw": 180.17,
     },
     "Midazolam": {
@@ -157,8 +155,6 @@ DRUGS = {
         "range": {"Sedation 70-260 ng/mL": (70.0, 260.0)},
         "toxic": [(260.0, "deep sedation"), (659.0, "unrousable: airway at risk")],
         "dose_steps": (0.5, 30.0, 0.5),
-        "bedside": {"dose": 3.0, "interval": 1.0, "route": "IV infusion", "infusion_h": 1.0, "speed": 0.25,
-                    "regimen": "3 mg/h continuous IV infusion", "extra": 2.0, "extra_h": 2.0 / 60.0},
         "ramsay_c50": [5.7, 71.0, 171.0, 260.0, 659.0],
         "effect_at": "plasma", "mw": 325.77,
     },
@@ -171,11 +167,79 @@ DRUGS = {
         "range": {"0.5-2 ng/mL": (0.5, 2.0)},
         "toxic": [(2.0, "toxic: bradycardia, heart block"), (3.0, "ventricular arrhythmias")],
         "dose_steps": (0.0625, 1.0, 0.03125),
-        "bedside": {"dose": 0.25, "interval": 24.0, "route": "Oral (immediate release)", "speed": 6.0,
-                    "regimen": "0.25 mg by mouth once a day", "extra": 0.25},
         "effect_at": "heart", "mw": 780.94,
     },
 }
+
+
+# The other nine drugs: typical adult values from their prescribing information and standard pharmacology references
+# (approximate). Clearances above about 1.1 L/h/kg are capped there (the model's liver cannot clear faster than its
+# blood flow; naloxone's real clearance is partly outside the liver). For strong bases (pKa above 7) the binding to
+# acidic phospholipids is not modelled, so their organ-by-organ pattern is approximate (their total volume is right).
+# "give": one dose from the bedside (mg, route, over how many hours); "regular": the usual regimen (mg, every h, route,
+# over h). "ke0" (per hour): how fast the effect follows the plasma (an effect compartment); none: at once.
+DRUGS.update({
+    "Morphine": {   # opioid analgesic: pain relief; sedation, slow breathing, nausea; reversed by naloxone
+        "logP": 0.89, "pKa": 8.2, "kind": "base", "fu": 0.65, "bp": 1.0, "F": 1.0, "ka": {"Oral (immediate release)": 1.5},
+        "cl_per_kg": 0.85, "cl_renal": 0.0, "vss_per_kg": 3.5, "unit": "ng/mL", "unit_k": 1000.0,
+        "factors": {"cirrhosis": 0.6, "chf": 1.0, "smoking": 1.0}, "range": {"Analgesia 20-80 ng/mL": (20.0, 80.0)},
+        "toxic": [(150.0, "breathing depressed")], "dose_steps": (1.0, 40.0, 1.0), "ke0": 1.0, "ec50": 30.0,
+        "give": (4.0, "iv", 2 / 60), "regular": (4.0, 4.0, "iv", 2 / 60), "mw": 285.3},
+    "Naloxone": {   # opioid antagonist: reverses morphine, for about an hour
+        "logP": 2.09, "pKa": 7.94, "kind": "base", "fu": 0.55, "bp": 1.0, "F": 0.05, "ka": {"Oral (immediate release)": 1.0},
+        "cl_per_kg": 1.1, "cl_renal": 0.0, "vss_per_kg": 2.5, "unit": "ng/mL", "unit_k": 1000.0,
+        "factors": {"cirrhosis": 0.7, "chf": 1.0, "smoking": 1.0}, "range": {"Reversal 1-10 ng/mL": (1.0, 10.0)},
+        "toxic": [(50.0, "abrupt reversal: pain, agitation")], "dose_steps": (0.1, 2.0, 0.1), "ke0": 6.0, "ki": 1.5,
+        "give": (0.4, "iv", 1 / 60), "regular": (0.4, 1.0, "iv", 1 / 60), "mw": 327.4},
+    "Flumazenil": {   # benzodiazepine antagonist: reverses midazolam, for about an hour
+        "logP": 1.0, "pKa": 1.7, "kind": "neutral", "fu": 0.5, "bp": 1.0, "F": 0.16, "ka": {"Oral (immediate release)": 1.0},
+        "cl_per_kg": 0.9, "cl_renal": 0.0, "vss_per_kg": 1.0, "unit": "ng/mL", "unit_k": 1000.0,
+        "factors": {"cirrhosis": 0.5, "chf": 1.0, "smoking": 1.0}, "range": {"Reversal 10-40 ng/mL": (10.0, 40.0)},
+        "toxic": [(200.0, "seizure risk")], "dose_steps": (0.1, 2.0, 0.1), "ke0": 6.0, "ki": 1.0,
+        "give": (0.2, "iv", 0.25 / 60), "regular": (0.2, 1.0, "iv", 0.25 / 60), "mw": 303.3},
+    "Propranolol": {   # beta-blocker: slows the heart, lowers blood pressure; tightens the airways in asthma
+        "logP": 3.09, "pKa": 9.5, "kind": "base", "fu": 0.10, "bp": 0.8, "F": 1.0, "ka": {"Oral (immediate release)": 1.0},
+        "cl_per_kg": 0.75, "cl_renal": 0.0, "vss_per_kg": 4.0, "unit": "ng/mL", "unit_k": 1000.0,
+        "factors": {"cirrhosis": 0.5, "chf": 1.0, "smoking": 1.2}, "range": {"20-100 ng/mL": (20.0, 100.0)},
+        "toxic": [(300.0, "bradycardia, hypotension")], "dose_steps": (10.0, 320.0, 10.0), "ec50": 18.2,
+        "give": (1.0, "iv", 1 / 60), "regular": (40.0, 8.0, "oral", 0.0), "mw": 259.3},
+    "Atropine": {   # antimuscarinic: speeds the heart, lifts vagal heart block
+        "logP": 1.83, "pKa": 9.8, "kind": "base", "fu": 0.56, "bp": 1.0, "F": 0.9, "ka": {"Oral (immediate release)": 1.0},
+        "cl_per_kg": 0.5, "cl_renal": 18.0, "vss_per_kg": 2.5, "unit": "ng/mL", "unit_k": 1000.0,
+        "factors": {"cirrhosis": 0.7, "chf": 1.0, "smoking": 1.0}, "range": {"2-8 ng/mL": (2.0, 8.0)},
+        "toxic": [(20.0, "delirium, hot dry skin")], "dose_steps": (0.1, 3.0, 0.1), "ec50": 3.0,
+        "give": (0.5, "iv", 0.5 / 60), "regular": (0.5, 4.0, "iv", 0.5 / 60), "mw": 289.4},
+    "Ondansetron": {   # antiemetic: stops nausea; prolongs the QT interval
+        "logP": 2.4, "pKa": 7.4, "kind": "base", "fu": 0.27, "bp": 1.0, "F": 0.6, "ka": {"Oral (immediate release)": 1.2},
+        "cl_per_kg": 0.35, "cl_renal": 0.0, "vss_per_kg": 1.9, "unit": "ng/mL", "unit_k": 1000.0,
+        "factors": {"cirrhosis": 0.4, "chf": 1.0, "smoking": 1.0}, "range": {"20-100 ng/mL": (20.0, 100.0)},
+        "toxic": [(300.0, "QT prolongation")], "dose_steps": (1.0, 32.0, 1.0), "ec50": 20.0,
+        "give": (4.0, "iv", 2 / 60), "regular": (4.0, 8.0, "iv", 2 / 60), "mw": 293.4},
+    "Paracetamol": {   # analgesic and antipyretic: mild pain relief, lowers fever; liver toxicity at high levels
+        "logP": 0.46, "pKa": 9.4, "kind": "acid", "fu": 0.8, "bp": 1.0, "F": 0.85, "ka": {"Oral (immediate release)": 2.0},
+        "cl_per_kg": 0.27, "cl_renal": 0.0, "vss_per_kg": 0.9, "unit": "mg/L", "unit_k": 1.0,
+        "factors": {"cirrhosis": 0.6, "chf": 1.0, "smoking": 1.0}, "range": {"10-20 mg/L": (10.0, 20.0)},
+        "toxic": [(150.0, "liver injury risk")], "dose_steps": (250.0, 4000.0, 250.0), "ec50": 10.0,
+        "give": (1000.0, "oral", 0.0), "regular": (1000.0, 6.0, "oral", 0.0), "mw": 151.2},
+    "Amlodipine": {   # calcium-channel blocker: lowers blood pressure slowly, for days; a reflex rise in heart rate
+        "logP": 3.0, "pKa": 8.6, "kind": "base", "fu": 0.03, "bp": 1.0, "F": 0.64, "ka": {"Oral (immediate release)": 0.12},
+        "cl_per_kg": 0.42, "cl_renal": 0.0, "vss_per_kg": 21.0, "unit": "ng/mL", "unit_k": 1000.0,
+        "factors": {"cirrhosis": 0.6, "chf": 1.0, "smoking": 1.0}, "range": {"3-11 ng/mL": (3.0, 11.0)},
+        "toxic": [(50.0, "severe hypotension")], "dose_steps": (2.5, 20.0, 2.5), "ec50": 5.0,
+        "give": (10.0, "oral", 0.0), "regular": (10.0, 24.0, "oral", 0.0), "mw": 408.9},
+    "Salbutamol": {   # beta2-agonist: opens the airways; speeds the heart
+        "logP": 0.64, "pKa": 9.3, "kind": "base", "fu": 0.9, "bp": 1.0, "F": 0.5, "ka": {"Oral (immediate release)": 1.5},
+        "cl_per_kg": 0.4, "cl_renal": 12.0, "vss_per_kg": 2.0, "unit": "ng/mL", "unit_k": 1000.0,
+        "factors": {"cirrhosis": 0.7, "chf": 1.0, "smoking": 1.0}, "range": {"3-20 ng/mL": (3.0, 20.0)},
+        "toxic": [(30.0, "tachycardia, tremor, low potassium")], "dose_steps": (0.25, 8.0, 0.25), "ec50": 5.0,
+        "give": (0.25, "iv", 10 / 60), "regular": (0.25, 4.0, "iv", 10 / 60), "mw": 239.3},
+})
+# the first three: what the bedside gives
+DRUGS["Theophylline"].update({"give": (300.0, "oral", 0.0), "regular": (300.0, 12.0, "oral", 0.0)})
+DRUGS["Midazolam"].update({"give": (2.0, "iv", 2 / 60), "regular": (3.0, 1.0, "iv", 1.0), "ke0": 8.0})
+DRUGS["Digoxin"].update({"give": (0.25, "oral", 0.0), "regular": (0.25, 24.0, "oral", 0.0)})
+for _d in DRUGS.values():
+    _d["ka"].setdefault("Oral (sustained release)", _d["ka"]["Oral (immediate release)"])
 
 
 def kp_rodgers_rowland(drug):
@@ -1590,12 +1654,11 @@ def models_run(ctx):
     else:
         ctx.log("Making the patient (a mockup: a translucent body, its organs inside it, each a part of its own).")
         glb, tri = patient_glb()
-    made = [("patient.glb", glb), ("platform.glb", platform_glb()), ("ring.glb", ring_glb()),
-            ("patient.scene.json", json.dumps(scene_file(offset, look_z), indent=1).encode("utf-8"))]
+    made = [("patient.glb", glb), ("patient.scene.json", json.dumps(scene_file(offset, look_z), indent=1).encode("utf-8"))]
     for name, data in made:
         with open(ctx.output("models", name), "wb") as fh:
             fh.write(data)
-    ctx.log("patient.glb: %d parts, %d triangles, %d KB; platform.glb, ring.glb, patient.scene.json." % (
+    ctx.log("patient.glb: %d parts, %d triangles, %d KB; patient.scene.json." % (
         len(tri), sum(tri.values()), len(glb) // 1024))
     stream_files(ctx, made)
     return {"parts": len(tri), "triangles": int(sum(tri.values()))}
