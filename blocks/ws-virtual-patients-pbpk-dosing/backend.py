@@ -1,6 +1,6 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 16 · worker block, Python: def run(ctx)
-# A whole-body physiologically based pharmacokinetic model of a drug in thousands of virtual patients: a trial of a dosing regimen, the best dose per population, and one patient followed live in 3D
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 17 · worker block, Python: def run(ctx)
+# A whole-body physiologically based pharmacokinetic model of three drugs in thousands of virtual patients: trials, the best dose per population, and a live bedside with vitals and a 3D patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
 #
@@ -12,11 +12,11 @@
 #   groups      Table (csv)               By group · groups.csv: in range, below, above and toxic peaks for each group (smokers, age bands, sex, conditions)
 #   doses       Table (csv)               Doses tried · Find the dose: dose_finding.csv, every dose tried for every population
 #   best        Table (csv)               Best doses · Find the dose: best_doses.csv, the dose chosen for each population
-#   models      Files (glb, json, wav)    3D models · Make the 3D models: patient.glb, platform.glb, ring.glb, heartbeat.wav, patient.scene.json for the project's assets (models/)
+#   models      Files (glb, json)         3D models · Make the 3D models: patient.glb, platform.glb, ring.glb, patient.scene.json for the project's assets (models/)
 #   telemetry   Live telemetry            ctx.telemetry("channel", data) while it runs
 # Settings ctx.params["key"]
-#   mode        select    What to do = "Run a virtual trial" of Run a virtual trial | Find the dose | Follow one patient (3D)…
-#   drug        select    Drug = "Theophylline" of Theophylline
+#   mode        select    What to do = "Run a virtual trial" of Run a virtual trial | Find the dose | Bedside (live) | Make t…
+#   drug        select    Drug = "Theophylline" of Theophylline | Midazolam | Digoxin
 #   population  select    Population = "Healthy adults" of Healthy adults | Smokers | Elderly (65+) | Liver cirrhosis | Heart…
 #   patients    number    Virtual patients = 2000
 #   female_pct  number    Women (%) = 50
@@ -27,11 +27,11 @@
 #   loading_mg  number    Extra with the first dose = 0
 #   infusion_h  number    IV infusion over (h) = 0.5
 #   days        number    Days = 5
-#   target      select    Target range = "10-20 mg\/L (classic)" of 10-20 mg/L (classic) | 5-15 mg/L (current guidance)
+#   target      select    Target range (theophylline) = "10-20 mg\/L (classic)" of 10-20 mg/L (classic) | 5-15 mg/L (current …
 #   population_scope select    Find the dose for = "All populations" of All populations | The population chosen
-#   max_toxic_pct number    Find the dose: toxic peaks at most (%) = 5
-#   follow      select    Follow = "The typical patient" of The typical patient | The most exposed patient | The least expose…
-#   speed       number    Follow: simulated hours per second = 1
+#   max_toxic_pct number    Find the dose: toxic levels at most (%) = 5
+#   bedside_patient select    Bedside: first patient = "Elderly woman, 84" of Healthy man, 35 | Healthy woman, 30 | Smoker, 45 (2…
+#   bedside_minutes number    Bedside: minutes it stays open = 20
 #   ct_case     text      Make the 3D models: CT case = ""
 #   accelerator select    Run on = "auto" of auto | NVIDIA GPU | CPU
 #   seed        number    Seed = 1
