@@ -8,7 +8,7 @@ An [EsaSim](https://esacode.com/) blueprint block: it runs on a worker, in Pytho
 
 | | |
 |---|---|
-| Block | `ws-virtual-patients-pbpk-dosing` · version 29 |
+| Block | `ws-virtual-patients-pbpk-dosing` · version 30 |
 | Workspace | Gianluca De Novi's workspace |
 | Author | Gianluca De Novi |
 | Runs on | Any worker, NVIDIA GPU |
