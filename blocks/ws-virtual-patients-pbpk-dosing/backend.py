@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 36 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 37 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -1650,20 +1650,18 @@ def models_run(ctx):
     ct = list(ctx.inputs.get("ct", []) or [])
     if not ct and str(ctx.params.get("ct_case") or "").strip():
         ct = fetch_ct_case(str(ctx.params["ct_case"]).strip(), ctx.log, ctx.progress)
-    offset, look_z = (0.0, 0.0, 0.042), 1.0
     if ct:
         ctx.log("Making the patient from the CT case wired in: its labelled structures, grouped by the model's compartments.")
         ps = ct_parts(ct, ctx.log)
-        # (a torso: stood on the platform, centred on it)
-        skin = next(p for p in ps if p[0] == "skin")
-        lo, hi = skin[1] + skin[2].min(0), skin[1] + skin[2].max(0)
-        offset = (-0.5 * (lo[0] + hi[0]), -0.5 * (lo[1] + hi[1]), 0.045 - lo[2])
-        look_z = 0.5 * (lo[2] + hi[2]) + offset[2]
-        glb, tri = patient_glb(ps)
     else:
         ctx.log("Making the patient (a mockup: a translucent body, its organs inside it, each a part of its own).")
-        glb, tri = patient_glb()
-    made = [("patient.glb", glb), ("patient.scene.json", json.dumps(scene_file(offset, look_z), indent=1).encode("utf-8"))]
+        ps = parts()
+    # the model's origin at the middle of the body, so that it turns about itself
+    skin = next(p for p in ps if p[0] == "skin")
+    mid = skin[1] + 0.5 * (skin[2].min(0) + skin[2].max(0))
+    ps = [(n, c - mid, v, f, nrm) for n, c, v, f, nrm in ps]
+    glb, tri = patient_glb(ps)
+    made = [("patient.glb", glb), ("patient.scene.json", json.dumps(scene_file((0.0, 0.0, 0.0), 0.0, ""), indent=1).encode("utf-8"))]
     for name, data in made:
         with open(ctx.output("models", name), "wb") as fh:
             fh.write(data)
