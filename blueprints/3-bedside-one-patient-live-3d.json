@@ -6,7 +6,7 @@
     "name": "3 · Bedside: one patient, live (3D)",
     "description": "One virtual patient on the regimen, live: each organ coloured by the drug's concentration in it, the heart beating, the doses and the moments the plasma level leaves the target range.",
     "published_version": 3,
-    "updated": "2026-11-24 22:21:41",
+    "updated": "2026-11-24 22:21:53",
     "graph": {
         "nodes": [
             {
@@ -136,6 +136,12 @@
                     "y": 0,
                     "w": 6,
                     "h": 21
+                },
+                "monitor": {
+                    "x": 0,
+                    "y": 21,
+                    "w": 6,
+                    "h": 7
                 }
             }
         }
