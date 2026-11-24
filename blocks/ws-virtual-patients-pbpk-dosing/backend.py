@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 24 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 25 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -1386,7 +1386,7 @@ def bedside_run(ctx):
     intro()
     b.course(focus)
     t0, deadline, tick, done = time.time(), time.time() + minutes * 60.0, 0, False
-    beat, last = 0.0, time.time()          # (heartbeats counted in real time at the live heart rate: the 3D view's heart and sound)
+    beat, breath, last = 0.0, 0.0, time.time()   # (heartbeats and breaths counted in real time at the live rates: the 3D view's heart, lungs and sounds)
     while time.time() < deadline and not done:
         try:
             msgs = ctx.messages("control")
@@ -1411,8 +1411,9 @@ def bedside_run(ctx):
         h = b.t
         now_s = time.time()
         beat += (now_s - last) * v["hr"] / 60.0 * (1.0 - 0.5 * v["dropped"])
+        breath += (now_s - last) * v["rr"] / 60.0
         last = now_s
-        item = {"t_h": round(h, 2), "day": clock(h), "beat": round(beat, 3), "who": b.patient_name, "patient": b.patient_name, "drug": focus,
+        item = {"t_h": round(h, 2), "day": clock(h), "beat": round(beat, 3), "breath": round(breath, 3), "who": b.patient_name, "patient": b.patient_name, "drug": focus,
                 "dose": b.dose_x.get(focus, 1.0), "regular": fc.regular, "clock": next((k for k, x in clocks.items() if x == speed), ""), "unit": unit, "hr": v["hr"], "rr": v["rr"], "glass": "#0a1626",
                 "focus_txt": "%s: plasma %s %s (target %g-%g) · a healthy adult: %s %s" % (focus, fmt % cp, unit, lo, hi, fmt % cref, unit),
                 "why": "%s: clearance %.1f L/h, half-life %.1f h (healthy adult %.1f h)" % (focus, cl[0], half[0], half[1])}
@@ -1491,6 +1492,10 @@ def bedside_run(ctx):
 
 
 # ── the 3D view's files ────────────────────────────────────────────────────────────────────────────────────────────────────────────
+HEART_SOUND = "universfield-heartbeat-single-383748.mp3"     # (the project's assets: one heartbeat, one deep breath)
+BREATH_SOUND = "hasin2004-deep-breath-247459.mp3"
+
+
 def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
     """the 3D view's scene: the patient, each organ coloured by how much of the chosen drug it holds, the gut, liver
     and kidneys glowing while they absorb or clear it, the heart beating (and heard) on each beat the model counts, the
@@ -1502,9 +1507,13 @@ def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
             mats[t] = {"color": "@patient.c_%s" % t, "emissive": "@patient.g_%s" % t}
     mats["arterial"] = {"color": "@patient.c_blood", "emissive": "@patient.g_blood"}
     mats["venous"] = {"color": "@patient.c_blood", "emissive": "@patient.g_blood"}
-    pulse = "max(0, 1 - 6 * (%s - floor(%s)))" % (beat, beat)            # (a quick contraction at the start of each beat)
+    # the heart contracts as the recording's first sound plays (0.2-0.35 s into it); the lungs fill while its breath is
+    # drawn in (0.3-1.6 s into the breath recording) and empty as it is let out
+    pulse = "max(0, 1 - 7 * abs((%s - floor(%s)) * 60 / max(@vitals.hr, 20) - 0.27))" % (beat, beat)
+    breath = "@patient.breath"
+    fill = "sin(3.1416 * min(1, max(0, ((%s - floor(%s)) * 60 / max(@patient.rr, 3) - 0.3) / 2.6)))" % (breath, breath)
     parts = {"heart": {"scale": {"expr": "1 + 0.09 * %s" % pulse}},
-             "lung": {"scale": {"expr": "1 + 0.03 * sin(@t * 6.2832 * (@patient.rr or 14) / 60)"}}}
+             "lung": {"scale": {"expr": "1 + 0.045 * %s" % fill}}}
     organs = [{"type": "text", "text": "%s  {@patient.t_%s}" % (TISSUE_LABEL[t], t), "size": "small"}
               for t in ("brain", "heart", "lung", "liver", "gut", "kidney", "muscle", "adipose", "bone")]
     legend = [{"type": "text", "text": "■ {@patient.leg%d} {@patient.unit}%s" % (k, ("  hardly any", "", "", "", "  the most")[k]),
@@ -1522,8 +1531,8 @@ def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
                    {"type": "ambient", "intensity": 0.3, "color": "#9fb4ff"}],
         "models": [{"id": "patient", "model": prefix + "patient.glb", "up": "z", "position": [round(v, 4) for v in offset],
                     "materials": mats, "parts": parts}],
-        "sounds": [{"id": "heartbeat", "sound": prefix + "heartbeat.mp3", "volume": 0.8,
-                    "on": {"expr": "%s - floor(%s) < 0.5" % (beat, beat)}}],
+        "sounds": [{"id": "heartbeat", "sound": prefix + HEART_SOUND, "volume": 0.8, "on": {"expr": "%s - floor(%s) < 0.5" % (beat, beat)}},
+                   {"id": "breath", "sound": prefix + BREATH_SOUND, "volume": 0.6, "on": {"expr": "%s - floor(%s) < 0.5" % (breath, breath)}}],
         "cameras": [{"id": "front", "type": "orbit", "position": [0.55, 1.45, z + 0.35], "look_at": [0, 0, z]}], "start": "front",
         "controls": [
             {"type": "select", "name": "patient", "label": "Patient", "options": list(PROFILES)},
