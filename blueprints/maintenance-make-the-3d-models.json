@@ -6,7 +6,7 @@
     "name": "Maintenance · Make the 3D models",
     "description": "The patient (a mockup until the anatomy models are in), the platform, the heartbeat and the scene, into the project's assets (models/).",
     "published_version": 3,
-    "updated": "2026-11-24 21:28:44",
+    "updated": "2026-11-24 21:32:07",
     "graph": {
         "nodes": [
             {
@@ -54,7 +54,14 @@
         ],
         "notes": [],
         "dash": {
-            "items": []
+            "items": {
+                "files": {
+                    "x": 0,
+                    "y": 0,
+                    "w": 6,
+                    "h": 18
+                }
+            }
         }
     }
 }
