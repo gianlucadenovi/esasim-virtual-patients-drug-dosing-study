@@ -32,7 +32,7 @@
         {
             "name": "Maintenance · Make the 3D models",
             "file": "blueprints/maintenance-make-the-3d-models.json",
-            "published_version": 2,
+            "published_version": 3,
             "nodes": 2
         }
     ],
@@ -41,6 +41,11 @@
             "id": "ws-virtual-patients-pbpk-dosing",
             "version": 12,
             "name": "Virtual patients (PBPK dosing)"
+        },
+        {
+            "id": "ws-model-files-preview-and-download",
+            "version": 1,
+            "name": "Model files (preview and download)"
         }
     ]
 }

@@ -1,0 +1,43 @@
+{
+    "id": "ws-model-files-preview-and-download",
+    "version": "1",
+    "name": "Model files (preview and download)",
+    "category": "Visualizers",
+    "icon": "eye",
+    "side": "frontend",
+    "customizable": true,
+    "summary": "Puts back together the files a block streams on a telemetry channel, shows the 3D model among them and offers every file to download",
+    "help": "Wire a block's Live telemetry (or a Telemetry block) in. The block sends each file on the channel as pieces: {\"file\", \"part\", \"parts\", \"size\", \"gz\", \"b64\"} (gzip then base64). The view shows the glb named in Show, and a Download button per file. Pieces missing a while after the last one are asked again with ctx.send(channel, {\"missing\": {file: [parts]}}), and {\"complete\": true} when every file is in. Useful when a worker's result files cannot reach EsaSim.",
+    "inputs": [
+        {
+            "id": "stream",
+            "label": "Live telemetry",
+            "type": "stream",
+            "help": "The files, in pieces, on the channel"
+        }
+    ],
+    "outputs": [],
+    "params": [
+        {
+            "key": "channel",
+            "label": "Channel",
+            "type": "text",
+            "default": "model_files"
+        },
+        {
+            "key": "show",
+            "label": "Show",
+            "type": "text",
+            "default": "patient.glb",
+            "help": "The glb file to show"
+        }
+    ],
+    "view": {
+        "w": 6,
+        "h": 7,
+        "resize": "both"
+    },
+    "esasim": {
+        "version": 1
+    }
+}
