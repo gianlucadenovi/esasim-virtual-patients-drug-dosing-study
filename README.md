@@ -235,7 +235,7 @@ The files the project's views draw with (3D models, textures, sounds), in [asset
 - [patient split.glb](assets/patient%20split.glb) · 12 MB
 - [patient-turn.js](assets/patient-turn.js) · 1.6 KB
 - [patient.glb](assets/patient.glb) · 12 MB
-- [patient.scene.json](assets/patient.scene.json) · 6.2 KB
+- [patient.scene.json](assets/patient.scene.json) · 6.8 KB
 - [universfield-heartbeat-single-383748.mp3](assets/universfield-heartbeat-single-383748.mp3) · 35 KB
 
 Keys pasted in blocks (secret settings) are not saved here, nor are the team and the results of runs.
