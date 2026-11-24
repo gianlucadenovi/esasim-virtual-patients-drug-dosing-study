@@ -32,8 +32,8 @@
         {
             "name": "Maintenance · Make the 3D models",
             "file": "blueprints/maintenance-make-the-3d-models.json",
-            "published_version": 1,
-            "nodes": 1
+            "published_version": 2,
+            "nodes": 2
         }
     ],
     "blocks": [

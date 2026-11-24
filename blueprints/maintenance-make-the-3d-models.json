@@ -5,10 +5,32 @@
     },
     "name": "Maintenance · Make the 3D models",
     "description": "The patient (a mockup until the anatomy models are in), the platform, the heartbeat and the scene, into the project's assets (models/).",
-    "published_version": 1,
-    "updated": "2026-11-24 20:21:49",
+    "published_version": 2,
+    "updated": "2026-11-24 20:54:20",
     "graph": {
         "nodes": [
+            {
+                "id": "dl",
+                "type": "download-files",
+                "x": -820,
+                "y": -160,
+                "params": {
+                    "sources": "https://zenodo.org/records/10047263",
+                    "fetch": "*.zip",
+                    "keep": "*.nii.gz",
+                    "inside": "",
+                    "case_file": "ct.nii.gz",
+                    "cases": "s1400",
+                    "also": "",
+                    "per_folder": 0,
+                    "max_files": 0,
+                    "seed": 1,
+                    "remote_zip": "auto",
+                    "licence": "CC-BY-4.0",
+                    "credit": "TotalSegmentator dataset v2.0.1 (small subset), Zenodo, doi:10.5281/zenodo.10047263. Wasserthal J., Breit H.-C., Meyer M.T., et al. TotalSegmentator: Robust Segmentation of 104 Anatomic Structures in CT Images. Radiology: Artificial Intelligence 2023; 5(5): e230024."
+                },
+                "title": "TotalSegmentator dataset (Zenodo): CT case s1400"
+            },
             {
                 "id": "models",
                 "type": "ws-virtual-patients-pbpk-dosing",
@@ -27,7 +49,19 @@
                 }
             }
         ],
-        "edges": [],
+        "edges": [
+            {
+                "id": "dl.files>models.ct",
+                "from": {
+                    "node": "dl",
+                    "port": "files"
+                },
+                "to": {
+                    "node": "models",
+                    "port": "ct"
+                }
+            }
+        ],
         "notes": [],
         "dash": {
             "items": []
