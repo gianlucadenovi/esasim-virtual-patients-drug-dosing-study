@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 14 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 15 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of a drug in thousands of virtual patients: a trial of a dosing regimen, the best dose per population, and one patient followed live in 3D
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -103,14 +103,35 @@ IX = {k: i for i, k in enumerate(STATE)}
 NS = len(STATE)
 
 
-# ── drugs ────────────────────────────────────────────────────────────────────────────────────────────────────────────
+# ── drugs ────────────────────────────────────────────────────────────────────────────────────────────────────────
+# Three drugs, each with a different story: theophylline (cleared by the liver's CYP1A2, sped up by smoking, slowed by
+# liver disease and heart failure), midazolam (a lipophilic sedative cleared by the liver's CYP3A4, stored in fat;
+# it slows breathing and lowers blood pressure) and digoxin (cleared mostly unchanged by the kidneys, slow to reach
+# the heart; it slows the heart and becomes toxic when the kidneys fail).
+# Concentrations are in each drug's own unit (mg/L for theophylline, ng/mL for the others): "unit_k" converts the
+# model's mg/L to it. "factors": how smoking, cirrhosis and heart failure change the hepatic intrinsic clearance (heart
+# failure's lower cardiac output and liver blood flow also act through the physiology, for every drug).
+#
 # Theophylline: logP -0.02 and pKa 8.6 (a very weak acid; PKKB); 40 % bound in plasma, mostly to albumin (fu 0.6);
-# oral bioavailability about 96-100 %, peak 0.5-2 h after an immediate-release tablet ("Clinical pharmacokinetics of
-# theophylline", Clin Pharmacokinet 1978;3:267-93); about 85 % of
-# its clearance hepatic (CYP1A2 about 88 % of that), the renal clearance 0.31 L/h in adults (Abduljalil et al. 2022);
-# Vss about 0.5 L/kg and a typical adult non-smoker's clearance about 0.04 L/h/kg (half-life about 8 h).
-# Concentrations: bronchodilation grows with log concentration over 5-20 mg/L; adverse effects become common above
-# 20 mg/L, arrhythmias between 20 and 40 mg/L, seizures above 40 mg/L (the same 1978 review).
+# oral bioavailability about 96-100 %, peak 0.5-2 h after an immediate-release tablet (Clin Pharmacokinet 1978;
+# 3:267-93); about 85 % of its clearance hepatic (CYP1A2 about 88 % of that), the renal clearance 0.31 L/h in adults
+# (Abduljalil et al. 2022); Vss about 0.5 L/kg and a typical adult non-smoker's clearance about 0.04 L/h/kg.
+# Concentrations: adverse effects become common above 20 mg/L, arrhythmias between 20 and 40 mg/L, seizures above
+# 40 mg/L.
+# Midazolam: logP 4.33, pKa 5.5 (a weak base; Molecules 2020;25:1080, Table 1); about 97 % bound to albumin (fu 0.03);
+# total clearance 0.25-0.54 L/h/kg, Vd 1.0-3.1 L/kg, half-life 1.8-6.4 h (mean about 3 h) in healthy adults; clearance
+# lower with old age, heart failure and cirrhosis; Vd larger in women, the elderly and the obese (US prescribing
+# information). Blood:plasma ratio 0.66 and the fraction reaching the blood after the gut wall's CYP3A4 (0.75): typical
+# model values (assumptions). Sedation: Ramsay scores 2-6 at about 6, 71, 171, 260 and 659 ng/mL (a population
+# pharmacodynamic study of midazolam by target-controlled infusion in surgical ICU patients); blood pressure and
+# ventilation (PaCO2) half-maximally affected at 50-60 ng/mL (Sunzel et al., Br J Clin Pharmacol 1988).
+# Digoxin: logP 1.26 (neutral; PKKB, QsarDB); 25 % bound (fu 0.75); oral bioavailability about 70 %; clearance about
+# 6 L/h and Vd about 400 L (about 6 L/kg) in adults, half-life about 40 h, mostly renal (25-28 % non-renal; Iisalo,
+# Clin Pharmacokinet 1977); high concentrations in the heart and kidneys, skeletal muscle the largest store, fat no
+# reservoir; therapeutic 0.5-2 ng/mL, toxic effects (bradycardia, heart block, ventricular arrhythmias) from about
+# twice that. Its effects follow its uptake in the heart, after a 6-8 h distribution phase: here the heart's own
+# concentration (as the plasma concentration it is in balance with) drives them. (Its binding to the sodium pump in
+# muscle and heart is not modelled: the tissues' levels come from their lipids and water, scaled to the observed Vss.)
 DRUGS = {
     "Theophylline": {
         "logP": -0.02, "pKa": 8.6, "kind": "acid", "fu": 0.60, "bp": 1.0, "F": 0.96,
@@ -118,10 +139,41 @@ DRUGS = {
         "cl_per_kg": 0.040,        # (L/h/kg) a typical healthy adult non-smoker's total clearance
         "cl_renal": 0.31,          # (L/h) at a GFR of 120 mL/min
         "vss_per_kg": 0.50,        # (L/kg) the observed volume the tissue partitioning is scaled to
+        "unit": "mg/L", "unit_k": 1.0,
+        "factors": {"smoking": 1.6, "cirrhosis": 0.40, "chf": 0.55},
         "range": {"10-20 mg/L (classic)": (10.0, 20.0), "5-15 mg/L (current guidance)": (5.0, 15.0)},
         "toxic": [(20.0, "adverse effects (nausea, tachycardia)"), (30.0, "arrhythmia risk"), (40.0, "seizure risk")],
-        "ec50": 10.0,              # (mg/L) the bronchodilation curve's half-way point (illustrative)
-        "mw": 180.17,
+        "dose_steps": (25.0, 2000.0, 25.0),
+        "bedside": {"dose": 300.0, "interval": 12.0, "route": "Oral (immediate release)", "speed": 1.0,
+                    "regimen": "300 mg by mouth every 12 h", "extra": 300.0},
+        "effect_at": "plasma", "mw": 180.17,
+    },
+    "Midazolam": {
+        "logP": 4.33, "pKa": 5.5, "kind": "base", "fu": 0.03, "bp": 0.66, "F": 0.75,
+        "ka": {"Oral (immediate release)": 3.0, "Oral (sustained release)": 3.0},
+        "cl_per_kg": 0.40, "cl_renal": 0.0, "vss_per_kg": 1.5,
+        "unit": "ng/mL", "unit_k": 1000.0,
+        "factors": {"smoking": 1.0, "cirrhosis": 0.50, "chf": 1.0},
+        "range": {"Sedation 70-260 ng/mL": (70.0, 260.0)},
+        "toxic": [(260.0, "deep sedation"), (659.0, "unrousable: airway at risk")],
+        "dose_steps": (0.5, 30.0, 0.5),
+        "bedside": {"dose": 3.0, "interval": 1.0, "route": "IV infusion", "infusion_h": 1.0, "speed": 0.25,
+                    "regimen": "3 mg/h continuous IV infusion", "extra": 2.0, "extra_h": 2.0 / 60.0},
+        "ramsay_c50": [5.7, 71.0, 171.0, 260.0, 659.0],
+        "effect_at": "plasma", "mw": 325.77,
+    },
+    "Digoxin": {
+        "logP": 1.26, "pKa": 7.0, "kind": "neutral", "fu": 0.75, "bp": 1.0, "F": 0.70,
+        "ka": {"Oral (immediate release)": 1.0, "Oral (sustained release)": 1.0},
+        "cl_per_kg": 6.0 / 73.0, "cl_renal": 4.4, "vss_per_kg": 6.0,
+        "unit": "ng/mL", "unit_k": 1000.0,
+        "factors": {"smoking": 1.0, "cirrhosis": 1.0, "chf": 1.0},
+        "range": {"0.5-2 ng/mL": (0.5, 2.0)},
+        "toxic": [(2.0, "toxic: bradycardia, heart block"), (3.0, "ventricular arrhythmias")],
+        "dose_steps": (0.0625, 1.0, 0.03125),
+        "bedside": {"dose": 0.25, "interval": 24.0, "route": "Oral (immediate release)", "speed": 6.0,
+                    "regimen": "0.25 mg by mouth once a day", "extra": 0.25},
+        "effect_at": "heart", "mw": 780.94,
     },
 }
 
@@ -910,110 +962,330 @@ def dose_run(ctx):
     return {b["population"]: b["dose"] for b in best}
 
 
-# ── one patient, live in the 3D view ─────────────────────────────────────────────────────────────────────────────
-def heat(c, lo, hi, toxic):
-    """a concentration's colour: dark blue (none), blue to teal (below range), green (in range), amber (above),
-    red (toxic) and hot white-pink (far above)"""
-    stops = [(0.0, (0.07, 0.10, 0.22)), (0.5 * lo, (0.10, 0.35, 0.85)), (lo, (0.10, 0.75, 0.75)), (0.5 * (lo + hi), (0.25, 0.85, 0.35)),
-             (hi, (0.95, 0.80, 0.15)), (toxic * 1.5 if toxic * 1.5 > hi else hi * 1.5, (0.95, 0.20, 0.12)), (toxic * 2.0, (1.0, 0.75, 0.85))]
-    c = max(0.0, float(c))
-    for (a, ca), (b, cb) in zip(stops[:-1], stops[1:]):
-        if c <= b:
-            k = (c - a) / max(b - a, 1e-9)
-            return tuple(x + (y - x) * k for x, y in zip(ca, cb))
-    return stops[-1][1]
-
-
+# ── colours ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
 def hexc(rgb, k=1.0):
     return "#%02x%02x%02x" % tuple(max(0, min(255, int(round(255 * x * k)))) for x in rgb)
 
 
-def follow_run(ctx):
+# ── the bedside: one patient at a time, live, chosen and dosed from the Bedside view ─────────────────────────────────
+PRESETS = {   # name: sex, age, height (cm), weight (kg), smoker, heart failure, cirrhosis, GFR (mL/min)
+    "Healthy man, 35": ("m", 35, 178, 75, 0, 0, 0, 115),
+    "Healthy woman, 30": ("f", 30, 165, 60, 0, 0, 0, 115),
+    "Smoker, 45 (20 a day)": ("m", 45, 176, 80, 1, 0, 0, 105),
+    "Obese woman, 40 (BMI 38)": ("f", 40, 165, 103, 0, 0, 0, 110),
+    "Elderly woman, 84": ("f", 84, 158, 55, 0, 0, 0, 40),
+    "Liver cirrhosis, 58": ("m", 58, 175, 70, 0, 0, 1, 90),
+    "Heart failure, 72": ("m", 72, 172, 82, 0, 1, 0, 55),
+    "Kidney failure, 66 (GFR 20)": ("f", 66, 162, 68, 0, 0, 0, 20),
+    "Random patient": None,
+}
+REFERENCE = "Healthy man, 35"
+TISSUE_LABEL = {"brain": "Brain", "heart": "Heart", "lung": "Lungs", "liver": "Liver", "gut": "Gut", "kidney": "Kidneys",
+                "muscle": "Muscle", "adipose": "Fat", "bone": "Bone", "spleen": "Spleen", "pancreas": "Pancreas", "skin": "Skin"}
+# the organs' colours: how much drug each holds, on a log scale from a fifth of the target range's low end to one and
+# a half times the first toxic level (dark violet: hardly any; through magenta and orange to pale yellow: the most)
+SCALE = [(0.0, (0.05, 0.04, 0.16)), (0.25, (0.25, 0.10, 0.45)), (0.5, (0.65, 0.18, 0.50)), (0.75, (0.98, 0.50, 0.25)),
+         (1.0, (0.99, 0.95, 0.65))]
+
+
+def scale_rgb(v):
+    v = min(1.0, max(0.0, v))
+    for (a, ca), (b, cb) in zip(SCALE[:-1], SCALE[1:]):
+        if v <= b:
+            k = (v - a) / (b - a)
+            return tuple(x + (y - x) * k for x, y in zip(ca, cb))
+    return SCALE[-1][1]
+
+
+def preset(name, rng):
+    p = PRESETS.get(name)
+    if p is None:                         # (someone from the mixed clinical population)
+        one = population(1, "Mixed clinical population", rng, 0.5)
+        return {k: np.asarray(v) for k, v in one.items()}
+    sex, age, h, w, smk, chf, cir, gfr = p
+    return {"female": np.array([sex == "f"]), "age": np.array([float(age)]), "height": np.array([float(h)]),
+            "weight": np.array([float(w)]), "bmi": np.array([w / (h / 100.0) ** 2]), "smoker": np.array([bool(smk)]),
+            "chf": np.array([bool(chf)]), "cirrhosis": np.array([bool(cir)]), "gfr": np.array([float(gfr)]), "enzyme": np.array([1.0])}
+
+
+def baseline_vitals(one):
+    """typical resting values for this person (illustrative: age, smoking and heart failure move them)"""
+    age, chf, smk = float(one["age"][0]), bool(one["chf"][0]), bool(one["smoker"][0])
+    return {"hr": 68.0 + (12.0 if chf else 0.0) + (6.0 if smk else 0.0), "sys": 115.0 + 0.5 * max(0.0, age - 30.0) - (10.0 if chf else 0.0),
+            "dia": 74.0 + 0.12 * max(0.0, age - 30.0), "rr": 14.0 + (4.0 if chf else 0.0),
+            "spo2": 98.0 - (2.0 if chf else 0.0) - (1.0 if smk else 0.0) - (1.0 if age > 75 else 0.0), "temp": 36.8}
+
+
+def vitals(name, c, ce, b):
+    """the vitals at plasma concentration c (and effect-site concentration ce) from the baseline b. The effects follow
+    the published thresholds and half-effect concentrations (see DRUGS); their exact shapes are simplified."""
+    hr, sys, dia, rr, spo2 = b["hr"], b["sys"], b["dia"], b["rr"], b["spo2"]
+    rhythm, ectopy, dropped, sedation, note = "Sinus rhythm", 0.0, 0.0, None, ""
+    if name == "Theophylline":            # (mg/L) stimulant: faster heart and breathing, ectopy, then hypotension
+        hr += 0.3 * min(c, 20.0) + 1.6 * max(0.0, c - 20.0)
+        rr += 0.25 * max(0.0, c - 20.0)
+        sys -= 1.2 * max(0.0, c - 40.0)
+        dia -= 0.8 * max(0.0, c - 40.0)
+        if c > 30:
+            rhythm, ectopy = "Atrial ectopic beats", min(0.4, 0.08 + 0.02 * (c - 30.0))
+        if c > 20:
+            note = "nausea, tremor" if c < 40 else "seizure risk"
+    elif name == "Midazolam":             # (ng/mL) sedative: lower blood pressure, slower breathing, lower SpO2
+        e = c / (c + 55.0)
+        sys *= 1.0 - 0.20 * e
+        dia *= 1.0 - 0.15 * e
+        hr *= 1.0 + 0.06 * e
+        drop = 0.45 * c * c / (c * c + 260.0 ** 2)
+        rr *= 1.0 - drop
+        spo2 -= 30.0 * max(0.0, drop - 0.15)
+        sedation = 1 + sum(c >= x for x in DRUGS["Midazolam"]["ramsay_c50"])
+        note = ["", "awake, calm", "drowsy, responds to voice", "asleep, responds to a tap", "responds only to pain",
+                "unrousable"][sedation - 1]
+    elif name == "Digoxin":               # (ng/mL, at the heart) slows the heart; toxic: block and ventricular ectopy
+        hr -= 5.0 * min(ce, 2.0) + 14.0 * max(0.0, ce - 2.0)
+        if ce > 2.0:
+            rhythm, dropped = "2nd-degree AV block", min(0.35, 0.10 * (ce - 2.0) + 0.05)
+            note = "nausea, visual disturbance"
+        if ce > 3.0:
+            rhythm, ectopy = "AV block, ventricular ectopics", min(0.4, 0.1 * (ce - 3.0) + 0.08)
+    hr = max(30.0, min(180.0, hr))
+    if rhythm == "Sinus rhythm":
+        rhythm = "Sinus tachycardia" if hr > 100 else ("Sinus bradycardia" if hr < 55 else rhythm)
+    alarms = []
+    for ok, what in ((hr >= 50, "HR LOW"), (hr <= 120, "HR HIGH"), (sys >= 90, "BP LOW"), (spo2 >= 92, "SpO2 LOW"),
+                     (rr >= 8, "RESP LOW"), (rr <= 26, "RESP HIGH"), (ectopy + dropped == 0, "ARRHYTHMIA")):
+        if not ok:
+            alarms.append(what)
+    return {"hr": round(hr), "sys": round(sys), "dia": round(dia), "map": round((sys + 2 * dia) / 3), "rr": round(max(4.0, rr)),
+            "spo2": round(max(70.0, min(100.0, spo2))), "temp": b["temp"], "rhythm": rhythm, "ectopy": round(ectopy, 3),
+            "dropped": round(dropped, 3), "sedation": sedation, "effect": note, "alarms": alarms}
+
+
+class Bedside:
+    """one patient and a healthy reference adult on the same drug, stepped live (exact steps of the linear model)"""
+
+    def __init__(self, drug_name, patient_name, rng, torch):
+        self.drug_name, self.drug = drug_name, DRUGS[drug_name]
+        bd = self.drug["bedside"]
+        self.route, self.dose, self.interval = bd["route"], bd["dose"], bd["interval"]
+        self.inf_h = bd.get("infusion_h", 0.5)
+        self.patient_name = patient_name
+        one, ref = preset(patient_name, rng), preset(REFERENCE, rng)
+        self.one = one
+        pop = {k: np.concatenate([one[k], ref[k]]) for k in one}
+        self.m = patients(pop, self.drug, self.route)
+        Phi, Gam = discretise(system_matrix(self.m), DT, torch, "cpu")
+        self.Phi, self.Gam = Phi.numpy(), Gam.numpy()
+        self.x = np.zeros((2, NS))
+        self.rate = np.zeros(2)               # (mg/h into the venous blood, while an infusion runs)
+        self.infusions = []                   # [(end h, mg/h)]
+        self.t = 0.0
+        self.next_dose = 0.0
+        self.dose_x = 1.0
+        self.stopped = False
+        self.base = baseline_vitals(one)
+        self.cl = clearance(self.m)
+        vss = np.array([_vss({t: self.m["Kp"][t][i] for t in TISSUES}, {t: self.m["V"][t][i] for t in TISSUES},
+                             self.m["V"]["arterial"][i] + self.m["V"]["venous"][i], self.m["bp"]) for i in range(2)])
+        self.half = math.log(2) * vss / self.cl
+
+    def give(self, mg, kind=None, over_h=None):
+        kind = kind or ("iv" if self.route.startswith("IV") else "oral")
+        if kind == "oral":
+            self.x[:, IX["lumen"]] += mg * self.m["F"]
+        else:
+            r = mg / max(over_h or self.inf_h, DT)
+            self.rate += r
+            self.infusions.append((self.t + max(over_h or self.inf_h, DT), r))
+
+    def advance(self, hours, on_dose):
+        steps = max(0, int(round(hours / DT)))
+        for _ in range(steps):
+            if not self.stopped and self.t >= self.next_dose - 1e-9:
+                self.give(self.dose * self.dose_x)
+                on_dose(self.t, self.dose * self.dose_x)
+                self.next_dose += self.interval
+            for end, r in list(self.infusions):
+                if self.t >= end - 1e-9:
+                    self.rate -= r
+                    self.infusions.remove((end, r))
+            self.x = np.einsum("bij,bj->bi", self.Phi, self.x) + self.Gam * self.rate[:, None]
+            self.t += DT
+
+    def plasma(self):
+        return self.x[:, IX["venous"]] / self.m["V"]["venous"] / self.m["bp"] * self.m["k"]
+
+    def tissue(self, t):
+        return self.x[:, IX[t]] / self.m["V"][t] * self.m["k"]
+
+    def flows(self):
+        """mg/h now: absorbed from the gut, metabolised by the liver, excreted by the kidneys (the patient)"""
+        m, x = self.m, self.x[0]
+        absorb = m["ka"] * x[IX["lumen"]]
+        liver = m["clint"][0] * m["fu"][0] / (m["Kp"]["liver"][0] * m["V"]["liver"][0]) * x[IX["liver"]]
+        kidney = m["clr"][0] / (m["Kp"]["kidney"][0] * m["V"]["kidney"][0]) * x[IX["kidney"]]
+        return absorb, liver, kidney
+
+
+def bedside_run(ctx):
     import time
     import torch
-    s = settings(ctx)
-    dev, label = device(ctx)
-    rng = np.random.default_rng(s["seed"])
-    n = max(50, min(s["n"], 4000))
-    pop = population(n, s["population"], rng, s["female"])
-    m, unit, first = unit_course(s, pop, torch, dev)
-    pl, _ = scaled(s, unit, first)
-    o = outcomes(pl, DT, s["interval"], s["lo"], s["hi"])
-    who = str(ctx.params.get("follow") or "The typical patient")
-    cavg = o["cavg"].cpu().numpy()
-    if who.startswith("The most exposed"):
-        i = int(np.argmax(o["peak"].cpu().numpy()))
-    elif who.startswith("The least"):
-        i = int(np.argmin(cavg))
-    elif who.startswith("A random"):
-        i = int(rng.integers(n))
-    else:
-        i = int(np.argsort(cavg)[n // 2])
-    one = {k: v[i:i + 1] for k, v in pop.items()}
-    m1 = patients(one, s["drug"], s["route"])
-    doses, _ = regimen(s["route"], s["dose"], s["interval"], s["days"], s["loading"], s["infusion_h"])
-    w = one["weight"] if s["per_kg"] else None
-    plasma, tissue = simulate(m1, doses, s["days"], torch, "cpu", dt=DT, infusion_h=s["infusion_h"], per_kg=w, keep_tissues=True)
-    plasma, tissue = plasma[0].numpy(), tissue[0].numpy()
-    kp = np.array([float(m1["Kp"][t][0]) for t in TISSUES])
-    # what each organ is exposed to: its concentration as the plasma concentration it is in balance with (mg/L)
-    expo = tissue / kp[None]
-    cl = float(clearance(m1)[0])
-    toxic = s["drug"]["toxic"]
-    sex = "woman" if one["female"][0] else "man"
-    info = {"who": "%s: a %s of %d, %d kg, %d cm" % (who, sex, round(one["age"][0]), round(one["weight"][0]), round(one["height"][0])),
-            "smoker": "smoker" if one["smoker"][0] else "non-smoker", "condition": condition(one, 0), "gfr": round(float(one["gfr"][0])),
-            "clearance": round(cl, 2), "half_life": round(math.log(2) * s["drug"]["vss_per_kg"] * float(one["weight"][0]) / cl, 1),
-            "regimen": describe(s), "target": "%g-%g mg/L" % (s["lo"], s["hi"])}
-    ctx.log("Following %s (%s, %s; GFR %d mL/min; clearance %.2f L/h, half-life %.1f h) on %s." % (
-        info["who"], info["smoker"], info["condition"], info["gfr"], cl, info["half_life"], info["regimen"]))
-    speed = float(ctx.params.get("speed") or 1.0)          # (simulated hours per second)
+    rng = np.random.default_rng(int(time.time() * 1000) % (2 ** 31))
+    drug_name = str(ctx.params.get("drug") or "Theophylline")
+    patient = str(ctx.params.get("bedside_patient") or "Elderly woman, 84")
+    minutes = float(ctx.params.get("bedside_minutes") or 20.0)
+    b = Bedside(drug_name, patient if patient in PRESETS else "Healthy man, 35", rng, torch)
+    speed = b.drug["bedside"]["speed"]
     fps = 5.0
-    hr = 72 + (12 if one["chf"][0] else 0) + (6 if one["smoker"][0] else 0)
-    rr = 14 + (4 if one["chf"][0] else 0)
-    ch = "patient"
-    dose_at = {int(round(t0 / DT)): (amt * (float(one["weight"][0]) if s["per_kg"] else 1.0), kind) for t0, amt, kind in doses}
-    state = "start"
-    t0 = time.time()
-    total = plasma.shape[0]
-    k = 0
-    ctx.telemetry("events", {"text": "%s, %s, %s; clearance %.2f L/h (half-life %.1f h)." % (info["who"], info["smoker"], info["condition"], cl, info["half_life"])})
-    while k < total:
-        h = k * DT
-        for j in range(max(0, k - int(round(speed / fps / DT)) + 1), k + 1):
-            if j in dose_at:
-                amt, kind = dose_at[j]
-                ctx.telemetry("events", {"text": "Day %d %02d:00 · %s %.0f mg %s" % (j * DT // 24 + 1, int(j * DT % 24), s["drug_name"], amt,
-                                                                                  "by mouth" if kind == "oral" else "IV")})
-        c = float(plasma[k])
-        now = "in range" if s["lo"] <= c <= s["hi"] else ("below range" if c < s["lo"] else "above range")
-        for cut, what in toxic:
-            if c > cut:
-                now = what
-        if now != state and k > 0:
-            ctx.telemetry("events", {"text": "Day %d %02d:00 · plasma %.1f mg/L: %s" % (h // 24 + 1, int(h % 24), c, now)})
-        state = now
-        item = {"t_h": round(h, 2), "day": "Day %d · %02d:%02d" % (h // 24 + 1, int(h % 24), int(round((h % 1) * 60)) % 60),
-                "plasma": round(c, 2), "state": now, "hr": hr, "rr": rr, "glass": hexc((0.35, 0.6, 1.0), 0.25)}
-        item.update(info)
-        for j, t in enumerate(TISSUES):
-            e = float(expo[k, j])
-            col = heat(e, s["lo"], s["hi"], toxic[0][0])
-            item["c_" + t] = hexc(col)
-            item["g_" + t] = hexc(col, 0.35 + 0.65 * min(1.0, max(0.0, (e - s["hi"]) / max(toxic[0][0], 1e-6))))
-            item[t] = round(e, 2)
-        col = heat(c, s["lo"], s["hi"], toxic[0][0])
-        item["c_blood"], item["g_blood"] = hexc(col), hexc(col, 0.5)
-        ctx.telemetry(ch, item)
-        k += max(1, int(round(speed / fps / DT)))
-        lag = t0 + (k / max(1, int(round(speed / fps / DT)))) / fps - time.time()
-        if lag > 0:
-            time.sleep(lag)
-        ctx.progress(100 * k / total, "%s · %.1f mg/L" % (item["day"], c))
+    seen, state, sed_was, rhythm_was, alarms_was = set(), None, None, None, ()
+    cum = {"absorbed": 0.0, "liver": 0.0, "kidneys": 0.0}
+
+    def clock(h):
+        mins = int(round(h * 60.0))
+        return "Day %d · %02d:%02d" % (mins // 1440 + 1, (mins // 60) % 24, mins % 60)
+
+    def say(text):
+        ctx.telemetry("events", {"text": "%s · %s" % (clock(b.t), text)})
+
+    def intro():
+        one = b.one
+        sex = "woman" if one["female"][0] else "man"
+        cond = condition(one, 0)
+        say("%s: a %s of %d, %d kg, %d cm, %s, %s, GFR %d mL/min. %s: %s." % (
+            b.patient_name, sex, round(float(one["age"][0])), round(float(one["weight"][0])), round(float(one["height"][0])),
+            "smoker" if one["smoker"][0] else "non-smoker", cond, round(float(one["gfr"][0])), b.drug_name, b.drug["bedside"]["regimen"]))
+        say("Clearance %.1f L/h, half-life %.1f h (a healthy man of 35: %.1f L/h, %.1f h)." % (b.cl[0], b.half[0], b.cl[1], b.half[1]))
+
+    def on_dose(t, mg):
+        kind = "IV" if b.route.startswith("IV") else "by mouth"
+        if b.route.startswith("IV") and b.interval <= b.inf_h + 1e-9:
+            if t < 1e-6:
+                say("Infusion started: %g mg/h." % mg)
+            return
+        say("%s %g mg %s." % (b.drug_name, mg, kind))
+    intro()
+    t0, deadline = time.time(), time.time() + minutes * 60.0
+    lo, hi = next(iter(b.drug["range"].values()))
+    tox = b.drug["toxic"][0][0]
+    s_lo, s_hi = lo / 5.0, tox * 1.5
+    unit = b.drug["unit"]
+    fmt = "%.1f" if unit == "mg/L" else ("%.2f" if b.drug_name == "Digoxin" else "%.0f")
+    legend = [fmt % (s_lo * (s_hi / s_lo) ** (k / 4.0)) for k in range(5)]
+    tick = 0
+    while time.time() < deadline:
+        # the Bedside view's buttons
+        try:
+            msgs = ctx.messages("bedside")
+        except Exception:      # noqa: BLE001
+            msgs = []
+        for msg in msgs or []:
+            d = msg.get("data") if isinstance(msg, dict) else None
+            if not isinstance(d, dict) or d.get("seq") in seen:
+                continue
+            seen.add(d.get("seq"))
+            if d.get("patient") or d.get("drug") or d.get("restart"):
+                drug_name = d.get("drug") or b.drug_name
+                patient = d.get("patient") or b.patient_name
+                if drug_name not in DRUGS or patient not in PRESETS:
+                    continue
+                keep_speed = d.get("drug") is None
+                b = Bedside(drug_name, patient, rng, torch)
+                speed = speed if keep_speed else b.drug["bedside"]["speed"]
+                lo, hi = next(iter(b.drug["range"].values()))
+                tox = b.drug["toxic"][0][0]
+                s_lo, s_hi = lo / 5.0, tox * 1.5
+                unit = b.drug["unit"]
+                fmt = "%.1f" if unit == "mg/L" else ("%.2f" if b.drug_name == "Digoxin" else "%.0f")
+                legend = [fmt % (s_lo * (s_hi / s_lo) ** (k / 4.0)) for k in range(5)]
+                state, sed_was, rhythm_was, alarms_was = None, None, None, ()
+                cum = {"absorbed": 0.0, "liver": 0.0, "kidneys": 0.0}
+                ctx.telemetry("events", {"text": "─── new patient ───"})
+                intro()
+            if d.get("give"):
+                bd = b.drug["bedside"]
+                mg = bd.get("extra", b.dose) * b.dose_x
+                b.give(mg, over_h=bd.get("extra_h"))
+                say("Extra dose: %s %g mg %s." % (b.drug_name, mg, "IV" if b.route.startswith("IV") else "by mouth"))
+            if "dose_x" in d:
+                b.dose_x = max(0.0, float(d["dose_x"]))
+                say("Dose set to %g%% of the usual (%s)." % (round(100 * b.dose_x), b.drug["bedside"]["regimen"]))
+            if "stop" in d:
+                b.stopped = bool(d["stop"])
+                if b.stopped:
+                    b.rate[:] = 0.0
+                    b.infusions.clear()
+                else:
+                    b.next_dose = b.t
+                say("Drug stopped." if b.stopped else "Drug restarted.")
+            if "speed" in d:
+                speed = max(0.05, min(48.0, float(d["speed"])))
         if finish_asked(ctx):
             break
-    return {"patient": info["who"], "clearance_l_h": info["clearance"], "half_life_h": info["half_life"],
-            "average_mg_l": round(float(o["cavg"][i]), 2), "peak_mg_l": round(float(o["peak"][i]), 2)}
+        b.advance(speed / fps, on_dose)
+        a_r, l_r, k_r = b.flows()
+        hrs = speed / fps
+        cum["absorbed"] += a_r * hrs
+        cum["liver"] += l_r * hrs
+        cum["kidneys"] += k_r * hrs
+        cp, cref = b.plasma()
+        ce = b.tissue("heart")[0] / b.m["Kp"]["heart"][0] if b.drug["effect_at"] == "heart" else cp
+        v = vitals(b.drug_name, float(cp), float(ce), b.base)
+        now = "in range" if lo <= cp <= hi else ("below range" if cp < lo else "above range")
+        for cut, what in b.drug["toxic"]:
+            if cp > cut:
+                now = what
+        h = b.t
+        item = {"t_h": round(h, 2), "day": clock(h),
+                "plasma": round(float(cp), 3), "ref_plasma": round(float(cref), 3), "state": now, "unit": unit,
+                "target": "%g-%g %s" % (lo, hi, unit), "drug": b.drug_name, "regimen": b.drug["bedside"]["regimen"] +
+                ("" if abs(b.dose_x - 1) < 1e-6 else " × %g" % round(b.dose_x, 2)) + (" (stopped)" if b.stopped else ""),
+                "who": b.patient_name, "hr": v["hr"], "rr": v["rr"], "glass": "#0a1626",
+                "why": "Clearance %.1f L/h · half-life %.1f h (healthy adult: %.1f h)" % (b.cl[0], b.half[0], b.half[1]),
+                "eliminated": "Absorbed %s mg · liver %s mg · kidneys %s mg" % tuple(
+                    ("%.2f" if b.dose < 1 else "%.0f") % cum[k] for k in ("absorbed", "liver", "kidneys"))}
+        for k in range(5):
+            item["leg%d" % k] = legend[k]
+        dose_rate = max(b.dose * b.dose_x, 1e-9) / b.interval
+        glow = {"gut": a_r / dose_rate, "liver": l_r / dose_rate, "kidney": k_r / dose_rate}
+        for t in ORGAN_VIEW:
+            ct = float(b.tissue(t)[0])
+            val = math.log(max(ct, s_lo * 1e-3) / s_lo) / math.log(s_hi / s_lo)
+            col = scale_rgb(val)
+            g = 0.12 + 0.88 * min(1.0, glow.get(t, 0.0))
+            item["c_" + t] = hexc(col)
+            item["g_" + t] = hexc(col, g if t in glow else 0.12)
+            item[t] = round(ct, 3)
+            item["t_" + t] = (fmt % ct) + " " + unit
+        pcol = scale_rgb(math.log(max(float(cp), s_lo * 1e-3) / s_lo) / math.log(s_hi / s_lo))
+        item["c_blood"], item["g_blood"] = hexc(pcol), hexc(pcol, 0.4)
+        item["plasma_txt"], item["ref_txt"] = (fmt % cp) + " " + unit, (fmt % cref) + " " + unit
+        ctx.telemetry("patient", item)
+        ctx.telemetry("vitals", dict(v, plasma=item["plasma"], unit=unit, target=item["target"], state=now, drug=b.drug_name,
+                                     who=b.patient_name, regimen=item["regimen"], day=item["day"], speed=speed,
+                                     patients=list(PRESETS), drugs=list(DRUGS), dose_x=b.dose_x, stopped=b.stopped))
+        # the story: what changes
+        if now != state and state is not None:
+            say("Plasma %s %s: %s." % (fmt % cp, unit, now))
+        state = now
+        if v["sedation"] is not None and v["sedation"] != sed_was:
+            if sed_was is not None:
+                say("Sedation: Ramsay %d (%s)." % (v["sedation"], v["effect"]))
+            sed_was = v["sedation"]
+        if v["rhythm"] != rhythm_was:
+            if rhythm_was is not None:
+                say("Rhythm: %s." % v["rhythm"])
+            rhythm_was = v["rhythm"]
+        if tuple(v["alarms"]) != alarms_was:
+            new = [a for a in v["alarms"] if a not in alarms_was]
+            if new:
+                say("ALARM: %s." % ", ".join(new))
+            alarms_was = tuple(v["alarms"])
+        tick += 1
+        lag = t0 + tick / fps - time.time()
+        if lag > 0:
+            time.sleep(lag)
+        ctx.progress(min(99.0, 100.0 * (time.time() - t0) / (minutes * 60.0)), "%s · %s · %s %s" % (item["day"], b.patient_name, fmt % cp, unit))
+    return {"patient": b.patient_name, "drug": b.drug_name, "hours": round(b.t, 1)}
 
 
 def finish_asked(ctx, ch="control"):
@@ -1089,69 +1361,54 @@ def _glb_parts(items):
             + struct.pack("<I", len(binc)) + b"BIN\0" + binc)
 
 
-def heartbeat_wav(rate=32000):
-    """one heartbeat: the two soft, low thumps of a heart heard through a stethoscope (lub, then dub)"""
-    t = np.arange(int(0.45 * rate)) / rate
-    rng = np.random.default_rng(3)
-
-    def thump(t0, f, a, d):
-        tt, on = np.clip(t - t0, 0, None), (t >= t0).astype(float)
-        return a * on * np.sin(2 * np.pi * f * tt) * np.exp(-tt / d) * (1 - np.exp(-tt / 0.004))
-    x = thump(0.0, 55, 1.0, 0.045) + thump(0.0, 110, 0.3, 0.025) + thump(0.21, 70, 0.65, 0.035) + thump(0.21, 140, 0.2, 0.02)
-    x = x + 0.03 * rng.standard_normal(len(t)) * np.exp(-t / 0.05)
-    x = x / (np.abs(x).max() + 1e-9) * 0.9
-    pcm = (x * 32767).astype("<i2").tobytes()
-    return (b"RIFF" + struct.pack("<I", 36 + len(pcm)) + b"WAVEfmt " + struct.pack("<IHHIIHH", 16, 1, 1, rate, rate * 2, 2, 16)
-            + b"data" + struct.pack("<I", len(pcm)) + pcm)
-
-
-def scene_file(torso=False):
-    """the 3D view's scene (models/patient.scene.json): the patient on the platform, each part coloured by the drug's
-    concentration there (from the channel patient), the heart beating and the lungs breathing at the patient's rates"""
+def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
+    """the 3D view's scene: the patient on the platform, each organ coloured by how much drug it holds (the legend's
+    scale), the gut, liver and kidneys glowing while they absorb or clear it, the heart beating and the lungs breathing
+    at the patient's live rates (from the channel patient)"""
     beat = "max(0, sin(@t * 6.2832 * (@patient.hr or 72) / 60))"
-    mats = {"skin": {"opacity": 0.13, "emissive": "@patient.glass"}}
+    mats = {"skin": {"opacity": 0.12, "emissive": "@patient.glass"}}
     for t in ORGAN_VIEW:
-        if t in ("skin",):
-            continue
-        mats[t] = {"color": "@patient.c_%s" % t, "emissive": "@patient.g_%s" % t}
+        if t != "skin":
+            mats[t] = {"color": "@patient.c_%s" % t, "emissive": "@patient.g_%s" % t}
     mats["arterial"] = {"color": "@patient.c_blood", "emissive": "@patient.g_blood"}
     mats["venous"] = {"color": "@patient.c_blood", "emissive": "@patient.g_blood"}
-    parts = {"heart": {"scale": {"expr": "1 + 0.07 * %s * %s" % (beat, beat)}},
-             "lung": {"scale": {"expr": "1 + 0.035 * sin(@t * 6.2832 * (@patient.rr or 14) / 60)"}}}
-    organ_bars = [{"type": "bar", "label": nm.capitalize(), "value": "@patient.%s" % t, "unit": "mg/L", "min": 0, "max": 30, "width": 150,
-                   "color": "#5c8dff"} for nm, t in (("brain", "brain"), ("heart", "heart"), ("lungs", "lung"), ("liver", "liver"), ("gut", "gut"),
-                                                     ("kidneys", "kidney"), ("muscle", "muscle"), ("fat", "adipose"), ("bone", "bone"))]
+    parts = {"heart": {"scale": {"expr": "1 + 0.08 * %s * %s" % (beat, beat)}},
+             "lung": {"scale": {"expr": "1 + 0.03 * sin(@t * 6.2832 * (@patient.rr or 14) / 60)"}}}
+    organs = [{"type": "text", "text": "%s  {@patient.t_%s}" % (TISSUE_LABEL[t], t), "size": "small"}
+              for t in ("brain", "heart", "lung", "liver", "gut", "kidney", "muscle", "adipose", "bone")]
+    legend = [{"type": "text", "text": "■ {@patient.leg%d} {@patient.unit}%s" % (k, ("  hardly any", "", "", "", "  the most")[k]),
+               "color": hexc(scale_rgb(k / 4.0)), "size": "small"} for k in range(5)]
+    z = look_z
     return {
         "format": "esasim.scene/2", "title": "Virtual patient", "units": "m", "up": "z",
-        "renderer": {"bloom": {"strength": 0.55, "radius": 0.45, "threshold": 0.55}},
-        "data": {"delay": 1.0, "smooth": 0.2, "events": "events"},
+        "renderer": {"bloom": {"strength": 0.6, "radius": 0.45, "threshold": 0.5}},
+        "data": {"delay": 0.6, "smooth": 0.2, "events": "events"},
         "environment": {"sky": "space", "ground": {"type": "none"}},
-        "lights": [{"type": "sun", "intensity": 1.2, "color": "#dfe8ff", "elevation": 60, "azimuth": 120},
-                   {"type": "spot", "intensity": 25, "color": "#ffffff", "at": [0.0, 2.2, 3.2], "aim": [0, 0, 1.0], "angle": 28},
-                   {"type": "spot", "intensity": 18, "color": "#5c8dff", "at": [0.0, -2.0, 2.6], "aim": [0, 0, 1.1], "angle": 30},
-                   {"type": "ambient", "intensity": 0.25, "color": "#9fb4ff"}],
-        "models": [{"id": "platform", "model": "models/platform.glb", "up": "z", "position": [0, 0, 0]},
-                   {"id": "ring", "model": "models/ring.glb", "up": "z", "position": [0, 0, 0],
+        "lights": [{"type": "sun", "intensity": 1.1, "color": "#dfe8ff", "elevation": 60, "azimuth": 120},
+                   {"type": "spot", "intensity": 22, "color": "#ffffff", "at": [0.0, 2.0, z + 1.8], "aim": [0, 0, z], "angle": 26},
+                   {"type": "spot", "intensity": 14, "color": "#5c8dff", "at": [0.0, -1.8, z + 1.4], "aim": [0, 0, z], "angle": 30},
+                   {"type": "ambient", "intensity": 0.3, "color": "#9fb4ff"}],
+        "models": [{"id": "platform", "model": prefix + "platform.glb", "up": "z", "position": [0, 0, 0]},
+                   {"id": "ring", "model": prefix + "ring.glb", "up": "z", "position": [0, 0, 0],
                     "materials": {"ring": {"emissive": "@patient.c_blood"}}},
-                   {"id": "patient", "model": "models/patient.glb", "up": "z", "position": [0, 0, 0.042], "materials": mats, "parts": parts}],
-        "sounds": [{"id": "heartbeat", "sound": "models/heartbeat.wav", "volume": 0.25,
-                    "on": {"expr": "sin(@t * 6.2832 * (@patient.hr or 72) / 60) > 0.97"}}],
-        "cameras": [{"id": "front", "type": "orbit", "position": [0.45, 1.25, 1.3] if torso else [0.9, 2.6, 1.35],
-                     "look_at": [0, 0, TORSO_Z] if torso else [0, 0, 1.0]}], "start": "front",
+                   {"id": "patient", "model": prefix + "patient.glb", "up": "z", "position": [round(v, 4) for v in offset],
+                    "materials": mats, "parts": parts}],
+        "cameras": [{"id": "front", "type": "orbit", "position": [0.55, 1.45, z + 0.35], "look_at": [0, 0, z]}], "start": "front",
         "overlay": [
             {"type": "panel", "at": "top-left", "title": "Virtual patient", "items": [
                 {"type": "text", "text": "@patient.who"},
-                {"type": "text", "text": "{@patient.smoker} · {@patient.condition} · GFR {@patient.gfr} mL/min", "color": "#9aa3b2"},
-                {"type": "text", "text": "Clearance {@patient.clearance} L/h · half-life {@patient.half_life} h", "color": "#9aa3b2"},
-                {"type": "text", "text": "@patient.regimen", "color": "#9aa3b2"}]},
+                {"type": "text", "text": "@patient.regimen", "color": "#9aa3b2"},
+                {"type": "text", "text": "@patient.why", "color": "#9aa3b2"},
+                {"type": "text", "text": "@patient.eliminated", "color": "#9aa3b2"}]},
             {"type": "panel", "at": "bottom-left", "items": [
                 {"type": "text", "text": "@patient.day", "size": "large"},
-                {"type": "tiles", "items": [{"label": "Plasma", "value": "@patient.plasma", "unit": "mg/L", "format": "0.0"},
-                                            {"label": "Now", "value": "@patient.state"},
-                                            {"label": "Target", "value": "@patient.target"}]},
-                {"type": "chart", "title": "Plasma concentration (mg/L)", "value": "@patient.plasma", "seconds": 90, "width": 300, "height": 90}]},
-            {"type": "panel", "at": "right", "title": "Organs (mg/L in balance)", "items": organ_bars},
-            {"type": "events", "at": "bottom-right", "count": 5}]}
+                {"type": "text", "text": "Plasma {@patient.plasma_txt} · {@patient.state}", "size": "normal"},
+                {"type": "text", "text": "Target {@patient.target} · a healthy adult now: {@patient.ref_txt}", "color": "#9aa3b2", "size": "small"},
+                {"type": "chart", "title": "Plasma", "value": "@patient.plasma", "seconds": 60, "width": 280, "height": 70}]},
+            {"type": "panel", "at": "right", "title": "Drug in each organ", "items": organs + [
+                {"type": "text", "text": "Colour: how much drug it holds", "color": "#9aa3b2", "size": "small"}] + legend + [
+                {"type": "text", "text": "Glow: the gut absorbing, the liver and kidneys clearing", "color": "#9aa3b2", "size": "small"}]},
+            {"type": "events", "at": "bottom-right", "count": 6}]}
 
 
 class _CaseFile:
@@ -1231,18 +1488,25 @@ def models_run(ctx):
     ct = list(ctx.inputs.get("ct", []) or [])
     if not ct and str(ctx.params.get("ct_case") or "").strip():
         ct = fetch_ct_case(str(ctx.params["ct_case"]).strip(), ctx.log, ctx.progress)
+    offset, look_z = (0.0, 0.0, 0.042), 1.0
     if ct:
         ctx.log("Making the patient from the CT case wired in: its labelled structures, grouped by the model's compartments.")
-        glb, tri = patient_glb(ct_parts(ct, ctx.log))
+        ps = ct_parts(ct, ctx.log)
+        # (a torso: stood on the platform, centred on it)
+        skin = next(p for p in ps if p[0] == "skin")
+        lo, hi = skin[1] + skin[2].min(0), skin[1] + skin[2].max(0)
+        offset = (-0.5 * (lo[0] + hi[0]), -0.5 * (lo[1] + hi[1]), 0.045 - lo[2])
+        look_z = 0.5 * (lo[2] + hi[2]) + offset[2]
+        glb, tri = patient_glb(ps)
     else:
         ctx.log("Making the patient (a mockup: a translucent body, its organs inside it, each a part of its own).")
         glb, tri = patient_glb()
-    made = [("patient.glb", glb), ("platform.glb", platform_glb()), ("ring.glb", ring_glb()), ("heartbeat.wav", heartbeat_wav()),
-            ("patient.scene.json", json.dumps(scene_file(torso=bool(ct)), indent=1).encode("utf-8"))]
+    made = [("patient.glb", glb), ("platform.glb", platform_glb()), ("ring.glb", ring_glb()),
+            ("patient.scene.json", json.dumps(scene_file(offset, look_z), indent=1).encode("utf-8"))]
     for name, data in made:
         with open(ctx.output("models", name), "wb") as fh:
             fh.write(data)
-    ctx.log("patient.glb: %d parts, %d triangles, %d KB; platform.glb, ring.glb, heartbeat.wav, patient.scene.json." % (
+    ctx.log("patient.glb: %d parts, %d triangles, %d KB; platform.glb, ring.glb, patient.scene.json." % (
         len(tri), sum(tri.values()), len(glb) // 1024))
     stream_files(ctx, made)
     return {"parts": len(tri), "triangles": int(sum(tri.values()))}
@@ -1254,6 +1518,6 @@ def run(ctx):
         return models_run(ctx)
     if "dose" in what:
         return dose_run(ctx)
-    if "follow" in what or "patient" in what:
-        return follow_run(ctx)
+    if "bedside" in what or "follow" in what or "patient" in what:
+        return bedside_run(ctx)
     return trial_run(ctx)
