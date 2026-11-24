@@ -21,13 +21,6 @@
             "in": "repo"
         },
         {
-            "path": "heartbeat.mp3",
-            "size": 2508,
-            "sha256": "e08692db030d1a85361f4540307f2027e7e4077e3a066d5b8f2add35c450c702",
-            "zip": "assets/heartbeat.mp3",
-            "in": "repo"
-        },
-        {
             "path": "patient.glb",
             "size": 12151636,
             "sha256": "e8b60dfcf4161ce09e7eb1d36b9a78506c5613a5c07618af5af05e51a7449ed5",
@@ -36,8 +29,8 @@
         },
         {
             "path": "patient.scene.json",
-            "size": 6485,
-            "sha256": "42b716ff47a6db58d01f02120cab3748bc15fd24840966fb35faf735ea714e14",
+            "size": 6757,
+            "sha256": "1f6ff01ee0a914814e2f8323e25e9f00a797f0f4141734515154e68afc004c25",
             "zip": "assets/patient.scene.json",
             "in": "repo"
         },
@@ -49,5 +42,5 @@
             "in": "repo"
         }
     ],
-    "saved": "2026-11-24T22:51:09+00:00"
+    "saved": "2026-11-24T22:52:39+00:00"
 }
