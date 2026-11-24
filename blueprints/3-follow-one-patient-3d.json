@@ -5,8 +5,8 @@
     },
     "name": "3 · Follow one patient (3D)",
     "description": "One virtual patient on the regimen, live: each organ coloured by the drug's concentration in it, the heart beating, the doses and the moments the plasma level leaves the target range.",
-    "published_version": 0,
-    "updated": "2026-11-24 20:24:46",
+    "published_version": 1,
+    "updated": "2026-11-24 20:25:28",
     "graph": {
         "nodes": [
             {
@@ -113,14 +113,14 @@
                 "view": {
                     "x": 0,
                     "y": 0,
-                    "w": 5,
-                    "h": 10
+                    "w": 12,
+                    "h": 12
                 },
                 "plasma": {
                     "x": 0,
-                    "y": 10,
-                    "w": 6,
-                    "h": 7
+                    "y": 12,
+                    "w": 12,
+                    "h": 9
                 }
             }
         }

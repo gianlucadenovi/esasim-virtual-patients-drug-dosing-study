@@ -91,13 +91,13 @@ An [EsaSim](https://esacode.com/) project of the workspace Gianluca De Novi's wo
 
 ### Blueprints in this repository
 
-- [1 · Virtual trial](blueprints/1-virtual-trial.json) · 8 blocks · version 2
+- [1 · Virtual trial](blueprints/1-virtual-trial.json) · 12 blocks · version 3
 - [2 · Find the dose](blueprints/2-find-the-dose.json) · 5 blocks
-- [3 · Follow one patient (3D)](blueprints/3-follow-one-patient-3d.json) · 4 blocks
+- [3 · Follow one patient (3D)](blueprints/3-follow-one-patient-3d.json) · 4 blocks · version 1
 - [Maintenance · Make the 3D models](blueprints/maintenance-make-the-3d-models.json) · 1 block · version 1
 
 ### Workspace blocks it uses
 
-- [Virtual patients (PBPK dosing)](blocks/ws-virtual-patients-pbpk-dosing) · version 5
+- [Virtual patients (PBPK dosing)](blocks/ws-virtual-patients-pbpk-dosing) · version 6
 
 Keys pasted in blocks (secret settings) are not saved here. Datasets, results and the team stay in EsaSim.

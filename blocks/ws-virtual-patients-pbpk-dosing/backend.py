@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 5 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 6 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of a drug in thousands of virtual patients: a trial of a dosing regimen, the best dose per population, and one patient followed live in 3D
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -723,8 +723,21 @@ def trial_run(ctx):
                "toxic_peak_pct": a["toxic_peak_pct"], "median_average_mg_l": a["median_average_mg_l"],
                "median_clearance_l_h": round(float(np.median(cl)), 2),
                "median_half_life_h": round(float(np.median(math.log(2) * s["drug"]["vss_per_kg"] * pop["weight"] / cl)), 1)}
-    for k, v in summary.items():
-        ctx.telemetry("trial", {"name": k, "value": v})
+    # the same results live, for the views (a worker's result files may not reach them)
+    for k in range(q.shape[1]):
+        ctx.telemetry("course", {"time_h": round(float(t[k * 5]), 2), "p05": round(float(q[0, k]), 3), "p25": round(float(q[1, k]), 3),
+                                  "median": round(float(q[2, k]), 3), "p75": round(float(q[3, k]), 3), "p95": round(float(q[4, k]), 3),
+                                  "target_low": s["lo"], "target_high": s["hi"], "toxic": toxic[0][0]})
+    cnt, edges = np.histogram(o["cavg"], bins=40)
+    for c_, a_, b_ in zip(cnt, edges[:-1], edges[1:]):
+        ctx.telemetry("spread", {"average_mg_l": round(float(a_ + b_) / 2, 2), "patients": int(c_)})
+    for r in rows:
+        ctx.telemetry("groups", r)
+    for i in range(min(s["n"], 300)):        # (the first 300 patients: the file has them all)
+        ctx.telemetry("patients", {"patient": i + 1, "sex": "F" if pop["female"][i] else "M", "age": round(float(pop["age"][i])),
+                                   "weight_kg": round(float(pop["weight"][i]), 1), "smoker": "yes" if pop["smoker"][i] else "no",
+                                   "condition": condition(pop, i), "clearance_l_h": round(float(cl[i]), 2), "average_mg_l": round(float(o["cavg"][i]), 2),
+                                   "peak_mg_l": round(float(o["cmax"][i]), 2), "highest_mg_l": round(float(o["peak"][i]), 2)})
     ctx.telemetry("trial", summary)
     ctx.log("At steady state %.0f%% of the patients are in the target range (%s), %.0f%% below it and %.0f%% above; %.1f%% reach a "
             "peak above %g mg/L (%s)." % (a["in_range_pct"], s["target"], a["too_low_pct"], a["too_high_pct"], a["toxic_peak_pct"], toxic[0][0], toxic[0][1]))
@@ -776,8 +789,10 @@ def dose_run(ctx):
             w = csv.DictWriter(fh, fieldnames=list(data[0]))
             w.writeheader()
             w.writerows(data)
+    for r in rows:
+        ctx.telemetry("doses", r)
     for b in best:
-        ctx.telemetry("doses", {"population": b["population"], "dose": b["dose"], "in_range_pct": b["in_range_pct"]})
+        ctx.telemetry("best", b)
     ctx.progress(100, "done")
     return {b["population"]: b["dose"] for b in best}
 

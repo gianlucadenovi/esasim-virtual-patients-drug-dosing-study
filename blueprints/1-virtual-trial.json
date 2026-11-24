@@ -5,8 +5,8 @@
     },
     "name": "1 · Virtual trial",
     "description": "A population on a dosing regimen: the plasma concentration over time (5th to 95th percentile), who ends up in the target range, below it, above it, and who reaches toxic peaks, overall and by group.",
-    "published_version": 2,
-    "updated": "2026-11-24 20:24:02",
+    "published_version": 3,
+    "updated": "2026-11-24 20:25:20",
     "graph": {
         "nodes": [
             {
@@ -41,6 +41,54 @@
                 "title": "Summary"
             },
             {
+                "id": "tel_course",
+                "type": "telemetry",
+                "x": -100,
+                "y": -420,
+                "params": {
+                    "interval": 0.5,
+                    "channels": "course",
+                    "keep": 5000
+                },
+                "title": "Course"
+            },
+            {
+                "id": "tel_spread",
+                "type": "telemetry",
+                "x": -100,
+                "y": -196,
+                "params": {
+                    "interval": 0.5,
+                    "channels": "spread",
+                    "keep": 200
+                },
+                "title": "Spread"
+            },
+            {
+                "id": "tel_patients",
+                "type": "telemetry",
+                "x": -100,
+                "y": 20,
+                "params": {
+                    "interval": 0.5,
+                    "channels": "patients",
+                    "keep": 500
+                },
+                "title": "Patients"
+            },
+            {
+                "id": "tel_groups",
+                "type": "telemetry",
+                "x": -100,
+                "y": 290,
+                "params": {
+                    "interval": 0.5,
+                    "channels": "groups",
+                    "keep": 100
+                },
+                "title": "Groups"
+            },
+            {
                 "id": "numbers",
                 "type": "gauge-view",
                 "x": 320,
@@ -61,6 +109,7 @@
                     "kind": "line",
                     "x": "time_h",
                     "y": "p05,p25,median,p75,p95,target_low,target_high,toxic",
+                    "channel": "course",
                     "title": "Plasma concentration (mg/L) over time (h): 5th, 25th, 50th, 75th, 95th percentile; target range; toxic level"
                 },
                 "title": "Concentration over time"
@@ -74,6 +123,7 @@
                     "kind": "bars",
                     "x": "group",
                     "y": "in_range_pct,too_low_pct,too_high_pct,toxic_peak_pct",
+                    "channel": "groups",
                     "ymin": "0",
                     "ymax": "100",
                     "title": "By group (%): in range, below, above, toxic peaks"
@@ -86,10 +136,11 @@
                 "x": 320,
                 "y": -196,
                 "params": {
-                    "kind": "histogram",
-                    "y": "average_mg_l",
-                    "bins": 40,
-                    "title": "Average concentration at steady state (mg/L), all patients"
+                    "kind": "bars",
+                    "x": "average_mg_l",
+                    "y": "patients",
+                    "channel": "spread",
+                    "title": "Patients by average concentration at steady state (mg/L)"
                 },
                 "title": "Spread"
             },
@@ -99,7 +150,7 @@
                 "x": 320,
                 "y": 20,
                 "params": [],
-                "title": "Patients"
+                "title": "Patients (the first 300)"
             },
             {
                 "id": "groups_table",
@@ -123,6 +174,50 @@
                 }
             },
             {
+                "id": "trial.telemetry>tel_course.from",
+                "from": {
+                    "node": "trial",
+                    "port": "telemetry"
+                },
+                "to": {
+                    "node": "tel_course",
+                    "port": "from"
+                }
+            },
+            {
+                "id": "trial.telemetry>tel_spread.from",
+                "from": {
+                    "node": "trial",
+                    "port": "telemetry"
+                },
+                "to": {
+                    "node": "tel_spread",
+                    "port": "from"
+                }
+            },
+            {
+                "id": "trial.telemetry>tel_patients.from",
+                "from": {
+                    "node": "trial",
+                    "port": "telemetry"
+                },
+                "to": {
+                    "node": "tel_patients",
+                    "port": "from"
+                }
+            },
+            {
+                "id": "trial.telemetry>tel_groups.from",
+                "from": {
+                    "node": "trial",
+                    "port": "telemetry"
+                },
+                "to": {
+                    "node": "tel_groups",
+                    "port": "from"
+                }
+            },
+            {
                 "id": "tel.stream>numbers.data",
                 "from": {
                     "node": "tel",
@@ -134,10 +229,10 @@
                 }
             },
             {
-                "id": "trial.course>course.data",
+                "id": "tel_course.stream>course.data",
                 "from": {
-                    "node": "trial",
-                    "port": "course"
+                    "node": "tel_course",
+                    "port": "stream"
                 },
                 "to": {
                     "node": "course",
@@ -145,10 +240,10 @@
                 }
             },
             {
-                "id": "trial.groups>groups_chart.data",
+                "id": "tel_groups.stream>groups_chart.data",
                 "from": {
-                    "node": "trial",
-                    "port": "groups"
+                    "node": "tel_groups",
+                    "port": "stream"
                 },
                 "to": {
                     "node": "groups_chart",
@@ -156,10 +251,10 @@
                 }
             },
             {
-                "id": "trial.patients>hist.data",
+                "id": "tel_spread.stream>hist.data",
                 "from": {
-                    "node": "trial",
-                    "port": "patients"
+                    "node": "tel_spread",
+                    "port": "stream"
                 },
                 "to": {
                     "node": "hist",
@@ -167,10 +262,10 @@
                 }
             },
             {
-                "id": "trial.patients>patients_table.data",
+                "id": "tel_patients.stream>patients_table.data",
                 "from": {
-                    "node": "trial",
-                    "port": "patients"
+                    "node": "tel_patients",
+                    "port": "stream"
                 },
                 "to": {
                     "node": "patients_table",
@@ -178,10 +273,10 @@
                 }
             },
             {
-                "id": "trial.groups>groups_table.data",
+                "id": "tel_groups.stream>groups_table.data",
                 "from": {
-                    "node": "trial",
-                    "port": "groups"
+                    "node": "tel_groups",
+                    "port": "stream"
                 },
                 "to": {
                     "node": "groups_table",

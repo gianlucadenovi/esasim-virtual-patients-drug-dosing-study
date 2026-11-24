@@ -14,8 +14,8 @@
         {
             "name": "1 · Virtual trial",
             "file": "blueprints/1-virtual-trial.json",
-            "published_version": 2,
-            "nodes": 8
+            "published_version": 3,
+            "nodes": 12
         },
         {
             "name": "2 · Find the dose",
@@ -26,7 +26,7 @@
         {
             "name": "3 · Follow one patient (3D)",
             "file": "blueprints/3-follow-one-patient-3d.json",
-            "published_version": 0,
+            "published_version": 1,
             "nodes": 4
         },
         {
@@ -39,7 +39,7 @@
     "blocks": [
         {
             "id": "ws-virtual-patients-pbpk-dosing",
-            "version": 5,
+            "version": 6,
             "name": "Virtual patients (PBPK dosing)"
         }
     ]
