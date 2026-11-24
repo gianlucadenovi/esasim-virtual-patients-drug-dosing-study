@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 13 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 14 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of a drug in thousands of virtual patients: a trial of a dosing regimen, the best dose per population, and one patient followed live in 3D
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -1160,7 +1160,7 @@ class _CaseFile:
         self.path, self.name = path, os.path.basename(path)
 
 
-def fetch_ct_case(case, folder, log, record="10047263"):
+def fetch_ct_case(case, log, progress=None, record="10047263"):
     """a CT case of the TotalSegmentator dataset (Zenodo record 10047263, CC BY 4.0), read in place from its zip: only
     the case's scan and labels are downloaded (for when the CT case cannot be wired in)"""
     import os
@@ -1174,8 +1174,10 @@ def fetch_ct_case(case, folder, log, record="10047263"):
         names = [n for n in z.namelist() if ("/" + n).find("/%s/" % case) >= 0 and n.lower().endswith(".nii.gz")]
         if not names:
             raise RuntimeError("No case %s in the TotalSegmentator dataset." % case)
-        for n in names:
+        for k, n in enumerate(names):
             z.extract(n, out)
+            if progress:
+                progress(40 * (k + 1) / len(names), "reading CT case %s (%d of %d files)" % (case, k + 1, len(names)))
     log("CT case %s read from the TotalSegmentator dataset (Zenodo %s): %d files." % (case, record, len(names)))
     return [_CaseFile(os.path.join(out, n)) for n in names]
 
@@ -1228,7 +1230,7 @@ def stream_files(ctx, items, channel="model_files", piece=40000, wait_s=180):
 def models_run(ctx):
     ct = list(ctx.inputs.get("ct", []) or [])
     if not ct and str(ctx.params.get("ct_case") or "").strip():
-        ct = fetch_ct_case(str(ctx.params["ct_case"]).strip(), getattr(ctx, "folder", None) or ".", ctx.log)
+        ct = fetch_ct_case(str(ctx.params["ct_case"]).strip(), ctx.log, ctx.progress)
     if ct:
         ctx.log("Making the patient from the CT case wired in: its labelled structures, grouped by the model's compartments.")
         glb, tri = patient_glb(ct_parts(ct, ctx.log))
