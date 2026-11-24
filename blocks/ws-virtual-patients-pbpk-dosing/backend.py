@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 12 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 13 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of a drug in thousands of virtual patients: a trial of a dosing regimen, the best dose per population, and one patient followed live in 3D
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -1168,7 +1168,8 @@ def fetch_ct_case(case, folder, log, record="10047263"):
     from remotezip import RemoteZip
     rec = requests.get("https://zenodo.org/api/records/%s" % record, timeout=60).json()
     url = next(f["links"]["self"] for f in rec["files"] if f["key"].lower().endswith(".zip"))
-    out = os.path.join(folder, "ct-case")
+    import tempfile
+    out = tempfile.mkdtemp(prefix="ct-case-")
     with RemoteZip(url, support_suffix_range=False) as z:
         names = [n for n in z.namelist() if ("/" + n).find("/%s/" % case) >= 0 and n.lower().endswith(".nii.gz")]
         if not names:
@@ -1179,7 +1180,7 @@ def fetch_ct_case(case, folder, log, record="10047263"):
     return [_CaseFile(os.path.join(out, n)) for n in names]
 
 
-def stream_files(ctx, items, channel="model_files", piece=196608, wait_s=90):
+def stream_files(ctx, items, channel="model_files", piece=40000, wait_s=180):
     """the files on a telemetry channel too (gzip, base64, in pieces), for the Model files view to put back together,
     show and offer to download: on a worker whose result files do not reach EsaSim, that is how they get out. Then,
     while the view asks for pieces it missed, they are sent again, until it has them all (or wait_s goes by)"""
@@ -1201,7 +1202,7 @@ def stream_files(ctx, items, channel="model_files", piece=196608, wait_s=90):
             send(name, k)
             sent += 1
             ctx.progress(90 + 9 * sent / total, "streaming the files to the view")
-            time.sleep(0.08)
+            time.sleep(0.04)
     ctx.log("Streamed %d files (%d pieces) on the channel %s, for the Model files view." % (len(packed), total, channel))
     end = time.time() + wait_s
     while time.time() < end:
