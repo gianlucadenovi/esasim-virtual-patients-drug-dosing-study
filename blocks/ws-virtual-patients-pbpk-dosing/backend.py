@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 3 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 4 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of a drug in thousands of virtual patients: a trial of a dosing regimen, the best dose per population, and one patient followed live in 3D
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -744,7 +744,9 @@ def dose_run(ctx):
     max_toxic = float(ctx.params.get("max_toxic_pct") or 5.0) / 100.0
     toxic = s["drug"]["toxic"][0][0]
     pops = list(POPULATIONS) if str(ctx.params.get("population_scope") or "All populations").startswith("All") else [s["population"]]
-    rows, best = [], []
+    slug = {"Healthy adults": "healthy", "Smokers": "smokers", "Elderly (65+)": "elderly", "Liver cirrhosis": "cirrhosis",
+            "Heart failure": "heart_failure", "Kidney impairment": "kidney", "Mixed clinical population": "mixed"}
+    rows, best = [{"dose": float(d)} for d in steps], []
     for k, name in enumerate(pops):
         ctx.progress(100 * k / len(pops), name)
         rng = np.random.default_rng(s["seed"] + k)
@@ -754,12 +756,13 @@ def dose_run(ctx):
         last = unit[0][:, -int(round(24.0 / DT)):]
         cavg1, peak1 = last.mean(1).cpu().numpy(), unit[0].max(1).values.cpu().numpy()
         pick = None
-        for d in steps:
+        for j, d in enumerate(steps):
             cavg, peak = cavg1 * d, peak1 * d
             r = {"population": name, "dose": float(d), "in_range_pct": round(100 * float(((cavg >= s["lo"]) & (cavg <= s["hi"])).mean()), 1),
                  "too_low_pct": round(100 * float((cavg < s["lo"]).mean()), 1), "too_high_pct": round(100 * float((cavg > s["hi"]).mean()), 1),
                  "toxic_peak_pct": round(100 * float((peak > toxic).mean()), 1), "median_average_mg_l": round(float(np.median(cavg)), 2)}
-            rows.append(r)
+            rows[j][slug[name] + "_in_range"] = r["in_range_pct"]
+            rows[j][slug[name] + "_toxic"] = r["toxic_peak_pct"]
             if r["toxic_peak_pct"] <= 100 * max_toxic and (pick is None or r["in_range_pct"] > pick["in_range_pct"]):
                 pick = r
         if pick:
