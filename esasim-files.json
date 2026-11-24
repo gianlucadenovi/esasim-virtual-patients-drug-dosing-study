@@ -12,7 +12,42 @@
             "sha256": "0402896cd35c65adc87ffed0a327c21db8947f91a635d67e1fd1e981ecacff26",
             "zip": "assets/covers/fda-project-optimus-selecting-optimal-dose-oncology.webp",
             "in": "repo"
+        },
+        {
+            "path": "heartbeat.wav",
+            "size": 28844,
+            "sha256": "1aba337ce0a9153f8d5c6585dd23b8a12c095a5302a90e0e427f13a763fbee28",
+            "zip": "assets/heartbeat.wav",
+            "in": "repo"
+        },
+        {
+            "path": "patient.glb",
+            "size": 12151636,
+            "sha256": "e8b60dfcf4161ce09e7eb1d36b9a78506c5613a5c07618af5af05e51a7449ed5",
+            "zip": "assets/patient.glb",
+            "in": "repo"
+        },
+        {
+            "path": "patient.scene.json",
+            "size": 6353,
+            "sha256": "7e7ff7c8435a1a09afacb5fff805b6c9dc888dce3a25fe38abe753a55df84035",
+            "zip": "assets/patient.scene.json",
+            "in": "repo"
+        },
+        {
+            "path": "platform.glb",
+            "size": 41272,
+            "sha256": "e9c6fd7c65402e2c03a9769609ec6683fea4b175c747e8598bd88b84aba37e4f",
+            "zip": "assets/platform.glb",
+            "in": "repo"
+        },
+        {
+            "path": "ring.glb",
+            "size": 22488,
+            "sha256": "f974f85c775873fe2e844e5ef71287d59d6887cf355934a42cc2989bd43f5359",
+            "zip": "assets/ring.glb",
+            "in": "repo"
         }
     ],
-    "saved": "2026-11-24T21:14:53+00:00"
+    "saved": "2026-11-24T21:52:26+00:00"
 }

@@ -117,5 +117,10 @@ An [EsaSim](https://esacode.com/) project of the workspace Gianluca De Novi's wo
 The files the project's views draw with (3D models, textures, sounds), in [assets/](assets/):
 
 - [covers/fda-project-optimus-selecting-optimal-dose-oncology.webp](assets/covers/fda-project-optimus-selecting-optimal-dose-oncology.webp) · 355 KB
+- [heartbeat.wav](assets/heartbeat.wav) · 28 KB
+- [patient.glb](assets/patient.glb) · 12 MB
+- [patient.scene.json](assets/patient.scene.json) · 6.2 KB
+- [platform.glb](assets/platform.glb) · 40 KB
+- [ring.glb](assets/ring.glb) · 22 KB
 
 Keys pasted in blocks (secret settings) are not saved here, nor are the team and the results of runs.

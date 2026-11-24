@@ -1,0 +1,372 @@
+{
+ "format": "esasim.scene/2",
+ "title": "Virtual patient",
+ "units": "m",
+ "up": "z",
+ "renderer": {
+  "bloom": {
+   "strength": 0.55,
+   "radius": 0.45,
+   "threshold": 0.55
+  }
+ },
+ "data": {
+  "delay": 1.0,
+  "smooth": 0.2,
+  "events": "events"
+ },
+ "environment": {
+  "sky": "space",
+  "ground": {
+   "type": "none"
+  }
+ },
+ "lights": [
+  {
+   "type": "sun",
+   "intensity": 1.2,
+   "color": "#dfe8ff",
+   "elevation": 60,
+   "azimuth": 120
+  },
+  {
+   "type": "spot",
+   "intensity": 25,
+   "color": "#ffffff",
+   "at": [
+    0.0,
+    2.2,
+    3.2
+   ],
+   "aim": [
+    0,
+    0,
+    1.0
+   ],
+   "angle": 28
+  },
+  {
+   "type": "spot",
+   "intensity": 18,
+   "color": "#5c8dff",
+   "at": [
+    0.0,
+    -2.0,
+    2.6
+   ],
+   "aim": [
+    0,
+    0,
+    1.1
+   ],
+   "angle": 30
+  },
+  {
+   "type": "ambient",
+   "intensity": 0.25,
+   "color": "#9fb4ff"
+  }
+ ],
+ "models": [
+  {
+   "id": "platform",
+   "model": "models/platform.glb",
+   "up": "z",
+   "position": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "id": "ring",
+   "model": "models/ring.glb",
+   "up": "z",
+   "position": [
+    0,
+    0,
+    0
+   ],
+   "materials": {
+    "ring": {
+     "emissive": "@patient.c_blood"
+    }
+   }
+  },
+  {
+   "id": "patient",
+   "model": "models/patient.glb",
+   "up": "z",
+   "position": [
+    0,
+    0,
+    0.042
+   ],
+   "materials": {
+    "skin": {
+     "opacity": 0.13,
+     "emissive": "@patient.glass"
+    },
+    "brain": {
+     "color": "@patient.c_brain",
+     "emissive": "@patient.g_brain"
+    },
+    "heart": {
+     "color": "@patient.c_heart",
+     "emissive": "@patient.g_heart"
+    },
+    "lung": {
+     "color": "@patient.c_lung",
+     "emissive": "@patient.g_lung"
+    },
+    "liver": {
+     "color": "@patient.c_liver",
+     "emissive": "@patient.g_liver"
+    },
+    "gut": {
+     "color": "@patient.c_gut",
+     "emissive": "@patient.g_gut"
+    },
+    "spleen": {
+     "color": "@patient.c_spleen",
+     "emissive": "@patient.g_spleen"
+    },
+    "pancreas": {
+     "color": "@patient.c_pancreas",
+     "emissive": "@patient.g_pancreas"
+    },
+    "kidney": {
+     "color": "@patient.c_kidney",
+     "emissive": "@patient.g_kidney"
+    },
+    "muscle": {
+     "color": "@patient.c_muscle",
+     "emissive": "@patient.g_muscle"
+    },
+    "adipose": {
+     "color": "@patient.c_adipose",
+     "emissive": "@patient.g_adipose"
+    },
+    "bone": {
+     "color": "@patient.c_bone",
+     "emissive": "@patient.g_bone"
+    },
+    "arterial": {
+     "color": "@patient.c_blood",
+     "emissive": "@patient.g_blood"
+    },
+    "venous": {
+     "color": "@patient.c_blood",
+     "emissive": "@patient.g_blood"
+    }
+   },
+   "parts": {
+    "heart": {
+     "scale": {
+      "expr": "1 + 0.07 * max(0, sin(@t * 6.2832 * (@patient.hr or 72) / 60)) * max(0, sin(@t * 6.2832 * (@patient.hr or 72) / 60))"
+     }
+    },
+    "lung": {
+     "scale": {
+      "expr": "1 + 0.035 * sin(@t * 6.2832 * (@patient.rr or 14) / 60)"
+     }
+    }
+   }
+  }
+ ],
+ "sounds": [
+  {
+   "id": "heartbeat",
+   "sound": "models/heartbeat.wav",
+   "volume": 0.25,
+   "on": {
+    "expr": "sin(@t * 6.2832 * (@patient.hr or 72) / 60) > 0.97"
+   }
+  }
+ ],
+ "cameras": [
+  {
+   "id": "front",
+   "type": "orbit",
+   "position": [
+    0.45,
+    1.25,
+    1.3
+   ],
+   "look_at": [
+    0,
+    0,
+    1.15
+   ]
+  }
+ ],
+ "start": "front",
+ "overlay": [
+  {
+   "type": "panel",
+   "at": "top-left",
+   "title": "Virtual patient",
+   "items": [
+    {
+     "type": "text",
+     "text": "@patient.who"
+    },
+    {
+     "type": "text",
+     "text": "{@patient.smoker} \u00b7 {@patient.condition} \u00b7 GFR {@patient.gfr} mL/min",
+     "color": "#9aa3b2"
+    },
+    {
+     "type": "text",
+     "text": "Clearance {@patient.clearance} L/h \u00b7 half-life {@patient.half_life} h",
+     "color": "#9aa3b2"
+    },
+    {
+     "type": "text",
+     "text": "@patient.regimen",
+     "color": "#9aa3b2"
+    }
+   ]
+  },
+  {
+   "type": "panel",
+   "at": "bottom-left",
+   "items": [
+    {
+     "type": "text",
+     "text": "@patient.day",
+     "size": "large"
+    },
+    {
+     "type": "tiles",
+     "items": [
+      {
+       "label": "Plasma",
+       "value": "@patient.plasma",
+       "unit": "mg/L",
+       "format": "0.0"
+      },
+      {
+       "label": "Now",
+       "value": "@patient.state"
+      },
+      {
+       "label": "Target",
+       "value": "@patient.target"
+      }
+     ]
+    },
+    {
+     "type": "chart",
+     "title": "Plasma concentration (mg/L)",
+     "value": "@patient.plasma",
+     "seconds": 90,
+     "width": 300,
+     "height": 90
+    }
+   ]
+  },
+  {
+   "type": "panel",
+   "at": "right",
+   "title": "Organs (mg/L in balance)",
+   "items": [
+    {
+     "type": "bar",
+     "label": "Brain",
+     "value": "@patient.brain",
+     "unit": "mg/L",
+     "min": 0,
+     "max": 30,
+     "width": 150,
+     "color": "#5c8dff"
+    },
+    {
+     "type": "bar",
+     "label": "Heart",
+     "value": "@patient.heart",
+     "unit": "mg/L",
+     "min": 0,
+     "max": 30,
+     "width": 150,
+     "color": "#5c8dff"
+    },
+    {
+     "type": "bar",
+     "label": "Lungs",
+     "value": "@patient.lung",
+     "unit": "mg/L",
+     "min": 0,
+     "max": 30,
+     "width": 150,
+     "color": "#5c8dff"
+    },
+    {
+     "type": "bar",
+     "label": "Liver",
+     "value": "@patient.liver",
+     "unit": "mg/L",
+     "min": 0,
+     "max": 30,
+     "width": 150,
+     "color": "#5c8dff"
+    },
+    {
+     "type": "bar",
+     "label": "Gut",
+     "value": "@patient.gut",
+     "unit": "mg/L",
+     "min": 0,
+     "max": 30,
+     "width": 150,
+     "color": "#5c8dff"
+    },
+    {
+     "type": "bar",
+     "label": "Kidneys",
+     "value": "@patient.kidney",
+     "unit": "mg/L",
+     "min": 0,
+     "max": 30,
+     "width": 150,
+     "color": "#5c8dff"
+    },
+    {
+     "type": "bar",
+     "label": "Muscle",
+     "value": "@patient.muscle",
+     "unit": "mg/L",
+     "min": 0,
+     "max": 30,
+     "width": 150,
+     "color": "#5c8dff"
+    },
+    {
+     "type": "bar",
+     "label": "Fat",
+     "value": "@patient.adipose",
+     "unit": "mg/L",
+     "min": 0,
+     "max": 30,
+     "width": 150,
+     "color": "#5c8dff"
+    },
+    {
+     "type": "bar",
+     "label": "Bone",
+     "value": "@patient.bone",
+     "unit": "mg/L",
+     "min": 0,
+     "max": 30,
+     "width": 150,
+     "color": "#5c8dff"
+    }
+   ]
+  },
+  {
+   "type": "events",
+   "at": "bottom-right",
+   "count": 5
+  }
+ ]
+}
