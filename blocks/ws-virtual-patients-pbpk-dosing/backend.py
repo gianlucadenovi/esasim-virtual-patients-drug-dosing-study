@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 19 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 20 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of three drugs in thousands of virtual patients: trials, the best dose per population, and a live bedside with vitals and a 3D patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -1084,6 +1084,7 @@ class Bedside:
         self.rate = np.zeros(2)               # (mg/h into the venous blood, while an infusion runs)
         self.infusions = []                   # [(end h, mg/h)]
         self.t = start
+        self.carry = 0.0
         self.next_dose = start
         self.dose_x = 1.0
         self.stopped = False
@@ -1103,7 +1104,10 @@ class Bedside:
             self.infusions.append((self.t + max(over_h or self.inf_h, DT), r))
 
     def advance(self, hours, on_dose):
-        steps = max(0, int(round(hours / DT)))
+        """advance by hours (whole model steps; the rest is carried to the next call); returns the hours advanced"""
+        self.carry += hours
+        steps = int(self.carry / DT + 1e-9)
+        self.carry -= steps * DT
         for _ in range(steps):
             if not self.stopped and self.t >= self.next_dose - 1e-9:
                 self.give(self.dose * self.dose_x)
@@ -1115,6 +1119,7 @@ class Bedside:
                     self.infusions.remove((end, r))
             self.x = np.einsum("bij,bj->bi", self.Phi, self.x) + self.Gam * self.rate[:, None]
             self.t += DT
+        return steps * DT
 
     def plasma(self):
         return self.x[:, IX["venous"]] / self.m["V"]["venous"] / self.m["bp"] * self.m["k"]
@@ -1233,9 +1238,8 @@ def bedside_run(ctx):
                 speed = max(0.05, min(48.0, float(d["speed"])))
         if finish_asked(ctx):
             break
-        b.advance(speed / fps, on_dose)
+        hrs = b.advance(speed / fps, on_dose)
         a_r, l_r, k_r = b.flows()
-        hrs = speed / fps
         cum["absorbed"] += a_r * hrs
         cum["liver"] += l_r * hrs
         cum["kidneys"] += k_r * hrs
