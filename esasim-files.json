@@ -29,8 +29,8 @@
         },
         {
             "path": "patient.scene.json",
-            "size": 6353,
-            "sha256": "7e7ff7c8435a1a09afacb5fff805b6c9dc888dce3a25fe38abe753a55df84035",
+            "size": 4903,
+            "sha256": "070262ac27ee6bdeeffbc5726efbab58428fbf181908ba59e1e9d183c40e7c18",
             "zip": "assets/patient.scene.json",
             "in": "repo"
         },
@@ -49,5 +49,5 @@
             "in": "repo"
         }
     ],
-    "saved": "2026-11-24T21:52:26+00:00"
+    "saved": "2026-11-24T21:53:50+00:00"
 }
