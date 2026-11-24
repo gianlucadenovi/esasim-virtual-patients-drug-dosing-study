@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 10 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 11 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of a drug in thousands of virtual patients: a trial of a dosing regimen, the best dose per population, and one patient followed live in 3D
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -1153,6 +1153,31 @@ def scene_file(torso=False):
             {"type": "events", "at": "bottom-right", "count": 5}]}
 
 
+class _CaseFile:
+    def __init__(self, path):
+        import os
+        self.path, self.name = path, os.path.basename(path)
+
+
+def fetch_ct_case(case, folder, log, record="10047263"):
+    """a CT case of the TotalSegmentator dataset (Zenodo record 10047263, CC BY 4.0), read in place from its zip: only
+    the case's scan and labels are downloaded (for when the CT case cannot be wired in)"""
+    import os
+    import requests
+    from remotezip import RemoteZip
+    rec = requests.get("https://zenodo.org/api/records/%s" % record, timeout=60).json()
+    url = next(f["links"]["self"] for f in rec["files"] if f["key"].lower().endswith(".zip"))
+    out = os.path.join(folder, "ct-case")
+    with RemoteZip(url, support_suffix_range=False) as z:
+        names = [n for n in z.namelist() if ("/" + n).find("/%s/" % case) >= 0 and n.lower().endswith(".nii.gz")]
+        if not names:
+            raise RuntimeError("No case %s in the TotalSegmentator dataset." % case)
+        for n in names:
+            z.extract(n, out)
+    log("CT case %s read from the TotalSegmentator dataset (Zenodo %s): %d files." % (case, record, len(names)))
+    return [_CaseFile(os.path.join(out, n)) for n in names]
+
+
 def stream_files(ctx, items, channel="model_files", piece=196608, wait_s=90):
     """the files on a telemetry channel too (gzip, base64, in pieces), for the Model files view to put back together,
     show and offer to download: on a worker whose result files do not reach EsaSim, that is how they get out. Then,
@@ -1200,6 +1225,8 @@ def stream_files(ctx, items, channel="model_files", piece=196608, wait_s=90):
 
 def models_run(ctx):
     ct = list(ctx.inputs.get("ct", []) or [])
+    if not ct and str(ctx.params.get("ct_case") or "").strip():
+        ct = fetch_ct_case(str(ctx.params["ct_case"]).strip(), getattr(ctx, "folder", None) or ".", ctx.log)
     if ct:
         ctx.log("Making the patient from the CT case wired in: its labelled structures, grouped by the model's compartments.")
         glb, tri = patient_glb(ct_parts(ct, ctx.log))
