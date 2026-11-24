@@ -34,12 +34,6 @@
             "file": "blueprints/maintenance-make-the-3d-models.json",
             "published_version": 2,
             "nodes": 2
-        },
-        {
-            "name": "Temporary · patient models into storage",
-            "file": "blueprints/temporary-patient-models-into-storage.json",
-            "published_version": 1,
-            "nodes": 1
         }
     ],
     "blocks": [
@@ -47,11 +41,6 @@
             "id": "ws-virtual-patients-pbpk-dosing",
             "version": 9,
             "name": "Virtual patients (PBPK dosing)"
-        },
-        {
-            "id": "ws-temporary-patient-models-into-worker",
-            "version": 1,
-            "name": "Temporary: patient models into worker storage"
         }
     ]
 }
