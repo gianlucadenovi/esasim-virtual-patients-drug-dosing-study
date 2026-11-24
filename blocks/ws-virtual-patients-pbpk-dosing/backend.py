@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 26 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 27 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -1499,7 +1499,8 @@ BREATH_SOUND = "hasin2004-deep-breath-247459.mp3"
 def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
     """the 3D view's scene: the patient, each organ coloured by how much of the chosen drug it holds, the gut, liver
     and kidneys glowing while they absorb or clear it, the heart beating (and heard) on each beat the model counts, the
-    lungs breathing at the live rate; the monitor, the drugs on board, the events, and the controls"""
+    lungs filling (and heard) on each breath; the drugs on board, the events, and the controls (the vitals: the Bedside
+    monitor view)"""
     beat = "@patient.beat"
     mats = {"skin": {"opacity": 0.12, "emissive": "@patient.glass"}}
     for t in ORGAN_VIEW:
@@ -1518,7 +1519,6 @@ def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
               for t in ("brain", "heart", "lung", "liver", "gut", "kidney", "muscle", "adipose", "bone")]
     legend = [{"type": "text", "text": "■ {@patient.leg%d} {@patient.unit}%s" % (k, ("  hardly any", "", "", "", "  the most")[k]),
                "color": hexc(scale_rgb(k / 4.0)), "size": "small"} for k in range(5)]
-    tile = lambda label, value, unit="": {"label": label, "value": value, "unit": unit}      # noqa: E731
     z = look_z
     return {
         "format": "esasim.scene/2", "title": "Virtual patient", "units": "m", "up": "z",
@@ -1553,18 +1553,6 @@ def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
                 {"type": "text", "text": "@patient.d0", "size": "small"}, {"type": "text", "text": "@patient.d1", "size": "small"},
                 {"type": "text", "text": "@patient.d2", "size": "small"}, {"type": "text", "text": "@patient.d3", "size": "small"},
                 {"type": "text", "text": "@patient.d4", "size": "small"}, {"type": "text", "text": "@patient.d5", "size": "small"}]},
-            {"type": "panel", "at": "top-right", "title": "Monitor", "items": [
-                {"type": "text", "text": "@vitals.alarm_txt", "color": "#ff6b6b", "size": "normal"},
-                {"type": "tiles", "items": [tile("HR", "@vitals.hr", "bpm"), tile("BP", "@vitals.bp", "mmHg"), tile("SpO₂", "@vitals.spo2", "%"),
-                                            tile("Resp", "@vitals.rr", "/min")]},
-                {"type": "tiles", "items": [tile("Temp", "@vitals.temp", "°C"), tile("QTc", "@vitals.qtc", "ms"), tile("Pain", "@vitals.pain", "/10")]},
-                {"type": "text", "text": "Rhythm: {@vitals.rhythm}", "color": "#7dffb0", "size": "small"},
-                {"type": "text", "text": "{@vitals.ramsay}", "color": "#a5b4fc", "size": "small"},
-                {"type": "text", "text": "Nausea: {@vitals.nausea} · Airways: {@vitals.airway}", "color": "#c9d1dc", "size": "small"},
-                {"type": "text", "text": "Other effects: {@vitals.effects}", "color": "#c9d1dc", "size": "small"},
-                {"type": "chart", "title": "Heart rate", "value": "@vitals.hr", "seconds": 60, "width": 250, "height": 46},
-                {"type": "chart", "title": "SpO₂", "value": "@vitals.spo2", "seconds": 60, "width": 250, "height": 46},
-                {"type": "chart", "title": "Breathing rate", "value": "@vitals.rr", "seconds": 60, "width": 250, "height": 46}]},
             {"type": "panel", "at": "left", "title": "Where the chosen drug is", "items": [
                 {"type": "text", "text": "@patient.focus_txt", "size": "small"},
                 {"type": "text", "text": "@patient.why", "color": "#9aa3b2", "size": "small"},

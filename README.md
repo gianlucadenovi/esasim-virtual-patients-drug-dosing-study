@@ -108,7 +108,7 @@ An [EsaSim](https://esacode.com/) project of the workspace Gianluca De Novi's wo
 
 ### Workspace blocks it uses
 
-- [Virtual patients (PBPK dosing)](blocks/ws-virtual-patients-pbpk-dosing) · version 26
+- [Virtual patients (PBPK dosing)](blocks/ws-virtual-patients-pbpk-dosing) · version 27
 - [Model files (preview and download)](blocks/ws-model-files-preview-and-download) · version 1
 
 ### Assets
