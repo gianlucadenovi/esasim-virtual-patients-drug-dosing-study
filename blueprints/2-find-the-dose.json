@@ -6,7 +6,7 @@
     "name": "2 · Find the dose",
     "description": "For every population, the dose that puts the most patients in the target range while keeping toxic peaks rare; every dose tried, as curves.",
     "published_version": 0,
-    "updated": "2026-11-24 20:15:45",
+    "updated": "2026-11-24 20:21:04",
     "graph": {
         "nodes": [
             {
@@ -31,16 +31,16 @@
             {
                 "id": "best_table",
                 "type": "table-view",
-                "x": 0,
-                "y": -220,
+                "x": -40,
+                "y": 380,
                 "params": [],
                 "title": "The dose for each population"
             },
             {
                 "id": "best_chart",
                 "type": "chart",
-                "x": 400,
-                "y": -220,
+                "x": 272,
+                "y": 80,
                 "params": {
                     "kind": "bars",
                     "x": "population",
@@ -53,8 +53,8 @@
             {
                 "id": "in_range",
                 "type": "chart",
-                "x": 0,
-                "y": 80,
+                "x": -40,
+                "y": -320,
                 "params": {
                     "kind": "line",
                     "x": "dose",
@@ -68,8 +68,8 @@
             {
                 "id": "toxic",
                 "type": "chart",
-                "x": 400,
-                "y": 80,
+                "x": 272,
+                "y": -160,
                 "params": {
                     "kind": "line",
                     "x": "dose",

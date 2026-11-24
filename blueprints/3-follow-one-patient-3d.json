@@ -6,14 +6,14 @@
     "name": "3 · Follow one patient (3D)",
     "description": "One virtual patient on the regimen, live: each organ coloured by the drug's concentration in it, the heart beating, the doses and the moments the plasma level leaves the target range.",
     "published_version": 0,
-    "updated": "2026-11-24 20:15:45",
+    "updated": "2026-11-24 20:21:26",
     "graph": {
         "nodes": [
             {
                 "id": "follow",
                 "type": "ws-virtual-patients-pbpk-dosing",
-                "x": -500,
-                "y": 0,
+                "x": -680,
+                "y": -180,
                 "params": {
                     "mode": "Follow one patient (3D)",
                     "population": "Mixed clinical population",
@@ -33,8 +33,8 @@
             {
                 "id": "tel",
                 "type": "telemetry",
-                "x": -100,
-                "y": 0,
+                "x": -320,
+                "y": -40,
                 "params": {
                     "interval": 0.25,
                     "channels": "patient,events",
@@ -45,8 +45,8 @@
             {
                 "id": "view",
                 "type": "scene-3d",
-                "x": 300,
-                "y": -200,
+                "x": 100,
+                "y": -180,
                 "params": {
                     "scene": "models/patient.scene.json",
                     "quality": "high",
@@ -59,8 +59,8 @@
             {
                 "id": "plasma",
                 "type": "chart",
-                "x": 300,
-                "y": 220,
+                "x": 100,
+                "y": 120,
                 "params": {
                     "kind": "line",
                     "x": "t_h",
