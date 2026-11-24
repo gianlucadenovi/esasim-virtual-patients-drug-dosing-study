@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 18 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 19 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of three drugs in thousands of virtual patients: trials, the best dose per population, and a live bedside with vitals and a 3D patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -986,8 +986,8 @@ PRESETS = {   # name: sex, age, height (cm), weight (kg), smoker, heart failure,
 REFERENCE = "Healthy man, 35"
 TISSUE_LABEL = {"brain": "Brain", "heart": "Heart", "lung": "Lungs", "liver": "Liver", "gut": "Gut", "kidney": "Kidneys",
                 "muscle": "Muscle", "adipose": "Fat", "bone": "Bone", "spleen": "Spleen", "pancreas": "Pancreas", "skin": "Skin"}
-# the organs' colours: how much drug each holds, on a log scale from a fifth of the target range's low end to one and
-# a half times the first toxic level (indigo: hardly any; through violet, magenta and orange to pale yellow: the most)
+# the organs' colours: how much drug each holds, on a log scale (tissue_scale): indigo, hardly any; through violet,
+# magenta and orange to pale yellow, the most
 SCALE = [(0.0, (0.27, 0.27, 0.66)), (0.25, (0.38, 0.17, 0.66)), (0.5, (0.78, 0.22, 0.55)), (0.75, (0.98, 0.50, 0.25)),
          (1.0, (0.99, 0.95, 0.65))]
 
@@ -1068,7 +1068,7 @@ def vitals(name, c, ce, b):
 class Bedside:
     """one patient and a healthy reference adult on the same drug, stepped live (exact steps of the linear model)"""
 
-    def __init__(self, drug_name, patient_name, rng, torch):
+    def __init__(self, drug_name, patient_name, rng, torch, start=0.0):
         self.drug_name, self.drug = drug_name, DRUGS[drug_name]
         bd = self.drug["bedside"]
         self.route, self.dose, self.interval = bd["route"], bd["dose"], bd["interval"]
@@ -1083,8 +1083,8 @@ class Bedside:
         self.x = np.zeros((2, NS))
         self.rate = np.zeros(2)               # (mg/h into the venous blood, while an infusion runs)
         self.infusions = []                   # [(end h, mg/h)]
-        self.t = 0.0
-        self.next_dose = 0.0
+        self.t = start
+        self.next_dose = start
         self.dose_x = 1.0
         self.stopped = False
         self.base = baseline_vitals(one)
@@ -1131,6 +1131,14 @@ class Bedside:
         return absorb, liver, kidney
 
 
+def tissue_scale(b, lo, tox):
+    """the organs' colour scale: the plasma levels from a fifth of the target range's low end to one and a half times
+    the first toxic level, times the drug's typical tissue:plasma ratio (digoxin's tissues hold many times its plasma
+    level, theophylline's about as much)"""
+    k = float(np.median([b.m["Kp"][t][0] for t in ORGAN_VIEW]))
+    return lo / 5.0 * k, tox * 1.5 * k
+
+
 def bedside_run(ctx):
     import time
     import torch
@@ -1171,7 +1179,7 @@ def bedside_run(ctx):
     t0, deadline = time.time(), time.time() + minutes * 60.0
     lo, hi = next(iter(b.drug["range"].values()))
     tox = b.drug["toxic"][0][0]
-    s_lo, s_hi = lo / 5.0, tox * 1.5
+    s_lo, s_hi = tissue_scale(b, lo, tox)
     unit = b.drug["unit"]
     fmt = "%.1f" if unit == "mg/L" else ("%.2f" if b.drug_name == "Digoxin" else "%.0f")
     legend = [fmt % (s_lo * (s_hi / s_lo) ** (k / 4.0)) for k in range(5)]
@@ -1193,11 +1201,11 @@ def bedside_run(ctx):
                 if drug_name not in DRUGS or patient not in PRESETS:
                     continue
                 keep_speed = d.get("drug") is None
-                b = Bedside(drug_name, patient, rng, torch)
+                b = Bedside(drug_name, patient, rng, torch, b.t)
                 speed = speed if keep_speed else b.drug["bedside"]["speed"]
                 lo, hi = next(iter(b.drug["range"].values()))
                 tox = b.drug["toxic"][0][0]
-                s_lo, s_hi = lo / 5.0, tox * 1.5
+                s_lo, s_hi = tissue_scale(b, lo, tox)
                 unit = b.drug["unit"]
                 fmt = "%.1f" if unit == "mg/L" else ("%.2f" if b.drug_name == "Digoxin" else "%.0f")
                 legend = [fmt % (s_lo * (s_hi / s_lo) ** (k / 4.0)) for k in range(5)]
@@ -1260,7 +1268,7 @@ def bedside_run(ctx):
             item["g_" + t] = hexc(col, g if t in glow else 0.12)
             item[t] = round(ct, 3)
             item["t_" + t] = (fmt % ct) + " " + unit
-        pcol = scale_rgb(math.log(max(float(cp), s_lo * 1e-3) / s_lo) / math.log(s_hi / s_lo))
+        pcol = scale_rgb(math.log(max(float(cp), lo * 1e-4) / (lo / 5.0)) / math.log(tox * 7.5 / lo))
         item["c_blood"], item["g_blood"] = hexc(pcol), hexc(pcol, 0.4)
         item["plasma_txt"], item["ref_txt"] = (fmt % cp) + " " + unit, (fmt % cref) + " " + unit
         ctx.telemetry("patient", item)
@@ -1385,7 +1393,7 @@ def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
     z = look_z
     return {
         "format": "esasim.scene/2", "title": "Virtual patient", "units": "m", "up": "z",
-        "renderer": {"bloom": {"strength": 0.6, "radius": 0.45, "threshold": 0.5}},
+        "renderer": {"bloom": {"strength": 0.3, "radius": 0.4, "threshold": 0.8}},
         "data": {"delay": 0.6, "smooth": 0.2, "events": "events"},
         "environment": {"sky": "space", "ground": {"type": "none"}},
         "lights": [{"type": "sun", "intensity": 1.1, "color": "#dfe8ff", "elevation": 60, "azimuth": 120},
