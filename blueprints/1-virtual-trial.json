@@ -6,7 +6,7 @@
     "name": "1 · Virtual trial",
     "description": "A population on a dosing regimen: the plasma concentration over time (5th to 95th percentile), who ends up in the target range, below it, above it, and who reaches toxic peaks, overall and by group.",
     "published_version": 1,
-    "updated": "2026-11-24 20:15:02",
+    "updated": "2026-11-24 20:20:32",
     "graph": {
         "nodes": [
             {
@@ -32,7 +32,7 @@
                 "id": "tel",
                 "type": "telemetry",
                 "x": -100,
-                "y": -260,
+                "y": 500,
                 "params": {
                     "interval": 0.5,
                     "channels": "trial",
@@ -43,8 +43,8 @@
             {
                 "id": "numbers",
                 "type": "gauge-view",
-                "x": 300,
-                "y": -300,
+                "x": 320,
+                "y": 600,
                 "params": {
                     "fields": "trial.in_range_pct,trial.too_low_pct,trial.too_high_pct,trial.toxic_peak_pct,trial.median_average_mg_l,trial.median_half_life_h",
                     "style": "number",
@@ -55,8 +55,8 @@
             {
                 "id": "course",
                 "type": "chart",
-                "x": 300,
-                "y": -60,
+                "x": 320,
+                "y": -420,
                 "params": {
                     "kind": "line",
                     "x": "time_h",
@@ -68,8 +68,8 @@
             {
                 "id": "groups_chart",
                 "type": "chart",
-                "x": 300,
-                "y": 200,
+                "x": 320,
+                "y": 380,
                 "params": {
                     "kind": "bars",
                     "x": "group",
@@ -83,8 +83,8 @@
             {
                 "id": "hist",
                 "type": "chart",
-                "x": 700,
-                "y": -60,
+                "x": 320,
+                "y": -196,
                 "params": {
                     "kind": "histogram",
                     "y": "average_mg_l",
@@ -96,16 +96,16 @@
             {
                 "id": "patients_table",
                 "type": "table-view",
-                "x": 700,
-                "y": 200,
+                "x": 320,
+                "y": 20,
                 "params": [],
                 "title": "Patients"
             },
             {
                 "id": "groups_table",
                 "type": "table-view",
-                "x": 700,
-                "y": 440,
+                "x": 320,
+                "y": 200,
                 "params": [],
                 "title": "Groups"
             }
