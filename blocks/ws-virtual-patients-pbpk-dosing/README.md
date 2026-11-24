@@ -8,7 +8,7 @@ An [EsaSim](https://esacode.com/) blueprint block: it runs on a worker, in Pytho
 
 | | |
 |---|---|
-| Block | `ws-virtual-patients-pbpk-dosing` · version 31 |
+| Block | `ws-virtual-patients-pbpk-dosing` · version 32 |
 | Workspace | Gianluca De Novi's workspace |
 | Author | Gianluca De Novi |
 | Runs on | Any worker, NVIDIA GPU |
@@ -49,7 +49,7 @@ An [EsaSim](https://esacode.com/) blueprint block: it runs on a worker, in Pytho
 | `target` Target range (theophylline) | select | `"10-20 mg/L (classic)"` | Theophylline only; the other drugs use their own range (midazolam sedation 70-260 ng/mL, digoxin 0.5-2 ng/mL, morphine 20-80 ng/mL...) |
 | `population_scope` Find the dose for | select | `"All populations"` |  |
 | `max_toxic_pct` Find the dose: toxic levels at most (%) | number | `5` |  |
-| `bedside_patient` Bedside: first patient | select | `"Elderly woman 84"` | The 3D view's Patient control changes it while it runs |
+| `bedside_patient` Bedside: first patient | select | `"Healthy man 35"` | The 3D view's Patient control changes it while it runs |
 | `bedside_minutes` Bedside: minutes it stays open | number | `20` |  |
 | `ct_case` Make the 3D models: CT case | text | `""` | With nothing wired to CT case: a case of the TotalSegmentator dataset (such as s1400), read in place from Zenodo. Empty: the mockup body. |
 | `accelerator` Run on | select | `"auto"` |  |

@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 31 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 32 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -30,7 +30,7 @@
 #   target      select    Target range (theophylline) = "10-20 mg\/L (classic)" of 10-20 mg/L (classic) | 5-15 mg/L (current …
 #   population_scope select    Find the dose for = "All populations" of All populations | The population chosen
 #   max_toxic_pct number    Find the dose: toxic levels at most (%) = 5
-#   bedside_patient select    Bedside: first patient = "Elderly woman 84" of Healthy man 35 | Healthy woman 30 | Athlete 24 (rest…
+#   bedside_patient select    Bedside: first patient = "Healthy man 35" of Healthy man 35 | Healthy woman 30 | Athlete 24 (restin…
 #   bedside_minutes number    Bedside: minutes it stays open = 20
 #   ct_case     text      Make the 3D models: CT case = ""
 #   accelerator select    Run on = "auto" of auto | NVIDIA GPU | CPU

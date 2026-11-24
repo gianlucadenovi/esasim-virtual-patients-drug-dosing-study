@@ -236,7 +236,7 @@
             "key": "bedside_patient",
             "label": "Bedside: first patient",
             "type": "select",
-            "default": "Elderly woman 84",
+            "default": "Healthy man 35",
             "options": [
                 "Healthy man 35",
                 "Healthy woman 30",
@@ -304,6 +304,6 @@
         "requests"
     ],
     "esasim": {
-        "version": 31
+        "version": 32
     }
 }
