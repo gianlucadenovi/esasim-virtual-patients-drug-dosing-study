@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 33 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 34 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -1327,7 +1327,7 @@ def bedside_run(ctx):
     patient = patient if patient in PROFILES else REFERENCE
     minutes = float(ctx.params.get("bedside_minutes") or 20.0)
     b = Bedside(patient, rng, torch)
-    clocks = {"15 min per second": 0.25, "1 h per second": 1.0, "4 h per second": 4.0, "12 h per second": 12.0}
+    clocks = {"15 min/s": 0.25, "1 h/s": 1.0, "4 h/s": 4.0, "12 h/s": 12.0}       # (patient time per second)
     speed, fps = 1.0, 5.0
     state, rhythm_was, sed_was, alarms_was, pain_was, nausea_was = {}, None, None, (), None, None
 
@@ -1554,7 +1554,7 @@ def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
             {"type": "toggle", "name": "regular", "label": "Regular"},
             {"type": "button", "label": "Stop all", "send": "stop all"},
             {"type": "select", "name": "clock", "label": "Clock",
-             "options": ["15 min per second", "1 h per second", "4 h per second", "12 h per second"], "value": "1 h per second"},
+             "options": ["15 min/s", "1 h/s", "4 h/s", "12 h/s"], "value": "1 h/s"},
             {"type": "button", "label": "Start again", "send": "start again"}],
         "overlay": [
             {"type": "panel", "at": "top-left", "title": "Virtual patient", "items": [
