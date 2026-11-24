@@ -12,7 +12,7 @@
 
 A whole-body physiologically based pharmacokinetic (PBPK) model follows each drug through the organs of every virtual patient, from their age, size, sex, smoking, and liver, heart and kidney function. Run thousands of patients at once to see who a regimen puts in range, or sit at one patient's bedside with a 3D body built from a real CT scan, a bedside monitor and the drugs' levels.
 
-![type](https://img.shields.io/badge/type-Research-blue) ![language](https://img.shields.io/badge/language-Python-3776AB) ![runs on](https://img.shields.io/badge/runs%20on-CPU%20%7C%20NVIDIA-6f42c1) ![method](https://img.shields.io/badge/method-PBPK%20%2B%20PD-orange) ![data](https://img.shields.io/badge/data-CC%20BY%204.0-green) [![made with](https://img.shields.io/badge/made%20with-EsaSim-0b7285)](https://esacode.com/)
+![type](https://img.shields.io/badge/type-Medical%20%26%20healthcare-blue) ![language](https://img.shields.io/badge/language-Python-3776AB) ![runs on](https://img.shields.io/badge/runs%20on-CPU%20%7C%20NVIDIA-6f42c1) ![method](https://img.shields.io/badge/method-PBPK%20%2B%20PD-orange) ![data](https://img.shields.io/badge/data-CC%20BY%204.0-green) [![made with](https://img.shields.io/badge/made%20with-EsaSim-0b7285)](https://esacode.com/)
 
 </div>
 
