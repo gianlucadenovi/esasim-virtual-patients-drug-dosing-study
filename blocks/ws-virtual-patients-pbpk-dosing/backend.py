@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 4 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 5 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of a drug in thousands of virtual patients: a trial of a dosing regimen, the best dose per population, and one patient followed live in 3D
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -51,8 +51,8 @@ import numpy as np
 
 
 # ── the body: reference organ volumes (L) and blood flows (L/min) ──────────────────────────────────────────────────
-# ICRP reference adults (male 73 kg, 176 cm; female 60 kg, 163 cm), as tabulated with PK-Sim's values in Jørgensen et
-# al., "Modeling principles for a physiology-based whole-body model of human metabolism" (arXiv:2404.14224, Table 1).
+# ICRP reference adults (male 73 kg, 176 cm; female 60 kg, 163 cm), as tabulated with PK-Sim's values in "Modeling
+# principles for a physiology-based whole-body model of human metabolism" (arXiv:2404.14224, Table 1).
 # The stomach, small and large intestine are one gut compartment; the gonads go with the rest of the body.
 REF = {   # organ: (V male, V female, Q male, Q female)
     "adipose": (14.65, 19.42, 0.320, 0.503),
@@ -74,7 +74,7 @@ REF_CO = {"male": 6.088, "female": 5.482}           # cardiac output (L/min)
 REF_BODY = {"male": (73.0, 176.0), "female": (60.0, 163.0)}   # kg, cm
 
 # ── tissue composition, for the partition coefficients ───────────────────────────────────────────────────────────
-# Unified tissue composition (Ruark et al. 2014, as tabulated by Metrum Research Group, ACoP 2019, Table 1):
+# Unified tissue composition (Ruark et al., as tabulated by Metrum Research Group, ACoP 2019, Table 1):
 # neutral lipid, neutral phospholipid, extracellular and intracellular water fractions, intracellular pH, and the
 # albumin tissue:plasma ratio (AR). The gut row stands for the pancreas too, the muscle row for the rest.
 COMP = {   # tissue: (f_nl, f_npl, f_ew, f_iw, pH, AR)
@@ -104,11 +104,12 @@ NS = len(STATE)
 
 # ── drugs ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 # Theophylline: logP -0.02 and pKa 8.6 (a very weak acid; PKKB); 40 % bound in plasma, mostly to albumin (fu 0.6);
-# oral bioavailability about 96-100 %, peak 0.5-2 h after an immediate-release tablet (Ogilvie 1978); about 85 % of
+# oral bioavailability about 96-100 %, peak 0.5-2 h after an immediate-release tablet ("Clinical pharmacokinetics of
+# theophylline", Clin Pharmacokinet 1978;3:267-93); about 85 % of
 # its clearance hepatic (CYP1A2 about 88 % of that), the renal clearance 0.31 L/h in adults (Abduljalil et al. 2022);
 # Vss about 0.5 L/kg and a typical adult non-smoker's clearance about 0.04 L/h/kg (half-life about 8 h).
 # Concentrations: bronchodilation grows with log concentration over 5-20 mg/L; adverse effects become common above
-# 20 mg/L, arrhythmias between 20 and 40 mg/L, seizures above 40 mg/L (Ogilvie 1978).
+# 20 mg/L, arrhythmias between 20 and 40 mg/L, seizures above 40 mg/L (the same 1978 review).
 DRUGS = {
     "Theophylline": {
         "logP": -0.02, "pKa": 8.6, "kind": "acid", "fu": 0.60, "bp": 1.0, "F": 0.96,
@@ -159,7 +160,7 @@ POPULATIONS = {
 }
 # what changes a patient's metabolism of the drug (factors on the hepatic intrinsic clearance; approximate, from the
 # direction and size the literature reports: smoking induces CYP1A2, cirrhosis and heart failure lower clearance,
-# clearance falls with age; Jusko et al. 1979, Ogilvie 1978)
+# clearance falls with age; Jusko et al. 1979, and the 1978 review)
 SMOKING_FACTOR = 1.6
 CIRRHOSIS_FACTOR = 0.40
 CHF_FACTOR = 0.55

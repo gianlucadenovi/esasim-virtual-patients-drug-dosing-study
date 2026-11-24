@@ -2,41 +2,86 @@
 ![Virtual patients: drug dosing study](assets/cover.svg)
 <!-- /esasim: cover -->
 
-<div align="center">
-
-<!-- Banner: upload a picture named banner.png under Data › Readme pictures; it shows here. -->
-
 # Virtual patients: drug dosing study
 
-**A whole-body physiologically based pharmacokinetic (PBPK) model in thousands of virtual patients: who a dosing regimen puts in the target range, who it under- or over-exposes, the best dose per population, and one patient followed live in 3D.**
+A whole-body **physiologically based pharmacokinetic (PBPK) model** of a drug, run in thousands of virtual patients at once. It answers the questions a dosing study asks:
 
-![type](https://img.shields.io/badge/type-Research-blue) ![language](https://img.shields.io/badge/language-Python-3776AB) ![runs on](https://img.shields.io/badge/runs%20on-CPU%20%7C%20NVIDIA-6f42c1) [![made with](https://img.shields.io/badge/made%20with-EsaSim-0b7285)](https://esacode.com/)
+- **Who does a regimen work for?** The share of patients in the target range, below it, above it, and reaching toxic peaks, overall and by group (smokers, age bands, sex, heart failure, liver cirrhosis, kidney impairment).
+- **What dose suits each population?** For every population, the dose that puts the most patients in range while keeping toxic peaks rare.
+- **What happens inside one patient?** A patient followed live in 3D, each organ coloured by the drug's concentration in it.
 
-<!-- More badges: ![licence](https://img.shields.io/badge/licence-MIT-green) — label, value and colour, written in the address. -->
+The first drug is **theophylline** (a bronchodilator with a narrow therapeutic window, cleared mainly by the liver's CYP1A2 enzyme, and strongly affected by smoking, age, liver disease and heart failure). That makes it a good teaching example for why one dose does not fit everyone.
 
-</div>
+> This is a teaching and exploration model, not a validated clinical tool. Do not use it to dose real patients.
 
-## Flows
+## The flows
 
-- **1 · Virtual trial**: A population on a dosing regimen: the plasma concentration over time (5th to 95th percentile), who ends up in the target range, below it, above it, and who reaches toxic peaks, overall and by group.
-- **2 · Find the dose**: For every population, the dose that puts the most patients in the target range while keeping toxic peaks rare; every dose tried, as curves.
-- **3 · Follow one patient (3D)**: One virtual patient on the regimen, live: each organ coloured by the drug's concentration in it, the heart beating, the doses and the moments the plasma level leaves the target range.
-- **Maintenance · Make the 3D models**: The patient (a mockup until the anatomy models are in), the platform, the heartbeat and the scene, into the project's assets (models/).
+| Flow | What it does |
+|---|---|
+| **1 · Virtual trial** | A population on a regimen (dose, interval, route, loading dose, days). Shows the plasma concentration over time (5th to 95th percentile), the spread of steady-state levels, outcomes by group, and a table of every patient. |
+| **2 · Find the dose** | Every population at doses from 25 mg to 2 g, with a curve per population of the share in range and the share with toxic peaks, and the best dose for each. |
+| **3 · Follow one patient (3D)** | The typical, most exposed, least exposed or a random patient, live. The organs are coloured from dark blue (no drug) through green (in range) to red (toxic). The heart beats and the lungs breathe, and doses and threshold crossings appear as events. |
+| **Maintenance · Make the 3D models** | Builds the patient, the platform, the heartbeat sound and the scene into the project's assets (models/). Run it once, and again after the body models change. |
 
-## What you need
+Each trial takes a few seconds, even for 10,000 patients, on a GPU or a CPU.
 
-- A computer with the EsaSim worker (Project > Compute); it runs on any worker, faster with: NVIDIA GPU.
-- Python packages, installed by the worker the first time: `numpy`, `torch`, `scikit-image`.
+## The model
 
-## How to run it
+**Compartments (16 states).** Lungs, brain, heart, kidneys, liver, gut (stomach and intestines), spleen, pancreas, fat, bone, muscle, skin and the rest of the body. There is also arterial blood, venous blood and the gut lumen (where an oral dose is absorbed). The gut, spleen and pancreas drain into the liver through the portal vein, so an oral dose passes the liver first.
 
-1. Under **Compute**, check that a worker is available for this project.
-2. Press **Run**, choose the worker, and follow the run on the flow's **View** page.
-3. The files it made are under **Results**; they stay on the worker until you save or download them.
+**Distribution.** Blood-flow limited. Tissue:plasma partition coefficients follow the Rodgers & Rowland method (acids, neutrals and very weak bases), from each tissue's composition: water, neutral lipids, phospholipids and albumin. They are scaled once so that a reference adult's volume of distribution matches the observed one (0.5 L/kg).
 
-## What you get
+**Elimination.** Liver metabolism on the unbound drug (well-stirred liver), plus renal excretion scaled by kidney function (GFR). The hepatic intrinsic clearance is set so that a reference adult non-smoker's total clearance is the observed 0.04 L/h/kg.
 
-- On the **View** page: *Summary* (1 · Virtual trial), *Outcome (%, mg/L, h)* (1 · Virtual trial), *Concentration over time* (1 · Virtual trial), *By group* (1 · Virtual trial), *Spread* (1 · Virtual trial), *Patients* (1 · Virtual trial), *Groups* (1 · Virtual trial), *The dose for each population* (2 · Find the dose), *Best dose* (2 · Find the dose), *In range by dose* (2 · Find the dose), *Toxic peaks by dose* (2 · Find the dose), *The patient, live* (3 · Follow one patient (3D)).
+**Solution.** The model is linear, so each patient's system is solved exactly over each 6-minute step with a matrix exponential, all patients at once. Any dose is a scaled copy of the course for one unit dose, which is why the dose search is instant.
+
+**Each virtual patient** has their own sex, age, height and weight (so BMI and body fat), smoking status, conditions, kidney function, and CYP1A2 activity (log-normal between people). From these come their organ volumes, blood flows, cardiac output, clearance and binding:
+
+- Organs scale with body surface area.
+- Fat comes from the Deurenberg body-fat formula.
+- Blood volume comes from Nadler's formula.
+- Muscle is what weight is left.
+
+What changes clearance:
+
+| Factor | Effect in the model |
+|---|---|
+| Smoking (CYP1A2 induction) | × 1.6 |
+| Liver cirrhosis | × 0.40, and less protein binding |
+| Heart failure | × 0.55, and a lower cardiac output |
+| Age | −0.8 % a year over 30 |
+| Kidney function | renal clearance ∝ GFR |
+
+These factors are approximate. They follow the direction and size the literature reports, and they are easy to change in the block's code (`SMOKING_FACTOR`, `CIRRHOSIS_FACTOR`, …).
+
+**Populations:** healthy adults, smokers, elderly (65+), liver cirrhosis, heart failure, kidney impairment (GFR 15–59 mL/min), and a mixed clinical population (40–85 years, 35 % smokers, 10 % heart failure, 5 % cirrhosis).
+
+**Outcomes** are measured at steady state (the last day of the regimen): trough, peak, average and time in range. "Toxic peaks" are any concentration above 20 mg/L during the course. Target range: 10–20 mg/L (classic) or 5–15 mg/L (current guidance). The thresholds are 20 mg/L (adverse effects), 30 mg/L (arrhythmia risk) and 40 mg/L (seizure risk).
+
+**Checked against the literature.** For a reference 73 kg adult non-smoker, the model gives a clearance of 0.040 L/h/kg, Vss 0.52 L/kg and a half-life of about 9 h (observed: 0.04 L/h/kg, 0.5 L/kg, about 8 h). On 300 mg every 12 h, the typical healthy adult sits at about 8.5 mg/L, and cirrhosis or heart failure roughly doubles that.
+
+## Sources
+
+- **Physiology:** ICRP reference adult organ volumes and blood flows, as tabulated with PK-Sim's values in Jørgensen et al., *Modeling principles for a physiology-based whole-body model of human metabolism* (arXiv:2404.14224, Table 1).
+- **Tissue composition:** Ruark et al., *Predicting passive and active tissue:plasma partition coefficients* (2014), unified table as presented by Metrum Research Group (ACoP 2019).
+- **Partitioning:** Rodgers T, Rowland M. *Physiologically based pharmacokinetic modelling 2: predicting the tissue distribution of acids, very weak bases, neutrals and zwitterions.* J Pharm Sci 2006;95:1238–57.
+- **Theophylline:**
+  - Ogilvie RI. *Clinical pharmacokinetics of theophylline.* Clin Pharmacokinet 1978;3:267–93: bioavailability, Vss 0.5 L/kg, concentration–effect and toxicity thresholds.
+  - Abduljalil K, Gardner I, Jamei M. *Application of a PBPK approach to predict theophylline pharmacokinetics…* Front Pediatr 2022: renal clearance 0.31 L/h, about 85 % metabolic, CYP1A2 about 88 %.
+  - Jusko WJ et al. *Factors affecting theophylline clearances: age, tobacco, marijuana, cirrhosis, congestive heart failure, obesity….* J Pharm Sci 1979.
+  - Physicochemical data (logP −0.02, pKa 8.6) from the PKKB database.
+- **Body composition:** Deurenberg P et al. (1991) body-fat formula; Nadler SB et al. (1962) blood volume; Mosteller (1987) body surface area.
+
+## The 3D patient
+
+The patient is a **mockup** for now: a translucent body with simplified organs inside, each a part of its own. Anatomical models of each organ will replace it, and their credits will be listed here.
+
+## Limits
+
+- It covers one drug (theophylline). More drugs need their physicochemical and clearance data in `DRUGS`.
+- Absorption is first-order, with no dissolution or gut-wall metabolism. Elimination is linear (theophylline is slightly saturable at high concentrations). There are no drug–drug interactions yet.
+- The population covariates are simplified. Real population models (e.g. from NHANES) would add correlations between age, weight and organ function.
+- The effect on the patient (bronchodilation) is not modelled beyond the concentration thresholds.
 
 <!-- esasim: files of the project -->
 
@@ -53,6 +98,6 @@ An [EsaSim](https://esacode.com/) project of the workspace Gianluca De Novi's wo
 
 ### Workspace blocks it uses
 
-- [Virtual patients (PBPK dosing)](blocks/ws-virtual-patients-pbpk-dosing) · version 4
+- [Virtual patients (PBPK dosing)](blocks/ws-virtual-patients-pbpk-dosing) · version 5
 
 Keys pasted in blocks (secret settings) are not saved here. Datasets, results and the team stay in EsaSim.
