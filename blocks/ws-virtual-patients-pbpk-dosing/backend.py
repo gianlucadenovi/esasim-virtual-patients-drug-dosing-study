@@ -1,41 +1,17 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 7 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 8 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of a drug in thousands of virtual patients: a trial of a dosing regimen, the best dose per population, and one patient followed live in 3D
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
 #
 # Inputs   ctx.inputs["id"] is a list of files: .path .name .size .read_text() .read_json()
-#   (none)
+#   ct          Files (nii)               CT case · several · optional · Make the 3D models: a CT case with its labels (ct.nii.gz and segmentations/<structure>.nii.gz, as the TotalSegmentator dataset gives them). Without it, the patient is a mockup.
 # Outputs  ctx.output("id", "name.ext") is the path to write; ctx.write_json / ctx.write_text
-#   course      Table (csv)               Course · course.csv: the plasma concentration over time, percentiles over the patients (p05, p25, median, p75, p95), with the target range and the toxic level
-#   patients    Table (csv)               Patients · patients.csv: one row per virtual patient (who they are, clearance, half-life, trough, peak, average, outcome)
-#   groups      Table (csv)               By group · groups.csv: in range, below, above and toxic peaks for each group (smokers, age bands, sex, conditions)
-#   doses       Table (csv)               Doses tried · Find the dose: dose_finding.csv, every dose tried for every population
-#   best        Table (csv)               Best doses · Find the dose: best_doses.csv, the dose chosen for each population
-#   models      Files (glb, json, wav)    3D models · Make the 3D models: patient.glb, platform.glb, ring.glb, heartbeat.wav, patient.scene.json for the project's assets (models/)
 #   telemetry   Live telemetry            ctx.telemetry("channel", data) while it runs
 # Settings ctx.params["key"]
-#   mode        select    What to do = "Run a virtual trial" of Run a virtual trial | Find the dose | Follow one patient (3D)…
-#   drug        select    Drug = "Theophylline" of Theophylline
-#   population  select    Population = "Healthy adults" of Healthy adults | Smokers | Elderly (65+) | Liver cirrhosis | Heart…
-#   patients    number    Virtual patients = 2000
-#   female_pct  number    Women (%) = 50
-#   route       select    Route = "Oral (immediate release)" of Oral (immediate release) | Oral (sustained release) | IV infu…
-#   dose_mg     number    Dose = 300
-#   dose_basis  select    Dose in = "mg" of mg | mg/kg
-#   interval_h  number    Every (h) = 12
-#   loading_mg  number    Extra with the first dose = 0
-#   infusion_h  number    IV infusion over (h) = 0.5
-#   days        number    Days = 5
-#   target      select    Target range = "10-20 mg\/L (classic)" of 10-20 mg/L (classic) | 5-15 mg/L (current guidance)
-#   population_scope select    Find the dose for = "All populations" of All populations | The population chosen
-#   max_toxic_pct number    Find the dose: toxic peaks at most (%) = 5
-#   follow      select    Follow = "The typical patient" of The typical patient | The most exposed patient | The least expose…
-#   speed       number    Follow: simulated hours per second = 1
-#   accelerator select    Run on = "auto" of auto | NVIDIA GPU | CPU
-#   seed        number    Seed = 1
-# Runs on  Any worker, NVIDIA GPU. Return a dict to fill the "result" output.
-# Packages numpy, torch, scikit-image (installed by the worker with pip when missing)
+#   (none)
+# Runs on  Any worker. Return a dict to fill the "result" output.
+# Packages numpy, torch, scikit-image, scipy, SimpleITK, trimesh, fast-simplification (installed by the worker with pip when missing)
 # EsaSim rewrites these lines from the block's definition each time it is saved: change the definition, not them.
 # ── end of EsaSim block header ────────────────────────────────────────
 
