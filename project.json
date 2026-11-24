@@ -26,7 +26,7 @@
         {
             "name": "3 · Bedside: one patient, many drugs, live (3D)",
             "file": "blueprints/3-bedside-one-patient-many-drugs-live-3d.json",
-            "published_version": 5,
+            "published_version": 6,
             "nodes": 5
         },
         {

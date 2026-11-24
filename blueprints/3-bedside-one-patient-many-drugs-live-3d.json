@@ -5,8 +5,8 @@
     },
     "name": "3 · Bedside: one patient, many drugs, live (3D)",
     "description": "One virtual patient on the regimen, live: each organ coloured by the drug's concentration in it, the heart beating, the doses and the moments the plasma level leaves the target range.",
-    "published_version": 5,
-    "updated": "2026-11-24 22:59:02",
+    "published_version": 6,
+    "updated": "2026-11-24 23:16:42",
     "graph": {
         "nodes": [
             {
@@ -17,7 +17,7 @@
                 "params": {
                     "mode": "Bedside (live)",
                     "drug": "Theophylline",
-                    "bedside_patient": "Elderly woman 84",
+                    "bedside_patient": "Healthy man 35",
                     "bedside_minutes": 20,
                     "accelerator": "CPU"
                 },
@@ -69,8 +69,9 @@
                     "x": "t_h",
                     "y": "lvl_theophylline,lvl_midazolam,lvl_digoxin,lvl_morphine,lvl_naloxone,lvl_flumazenil,lvl_propranolol,lvl_atropine,lvl_ondansetron,lvl_paracetamol,lvl_amlodipine,lvl_salbutamol",
                     "channel": "patient",
+                    "last": 450,
                     "ymin": "0",
-                    "title": "Each drug given: plasma level as % of the top of its target range (100 = top), over time (h)"
+                    "title": "Each drug given: plasma level as % of the top of its target range (100 = top), the last 90 seconds, over time (h)"
                 },
                 "title": "Drug levels"
             }
