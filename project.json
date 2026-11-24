@@ -6,7 +6,7 @@
     },
     "name": "Virtual patients: drug dosing study",
     "description": "A whole-body physiologically based pharmacokinetic (PBPK) model of twelve drugs in virtual patients: who a regimen puts in range, the best dose per population, and a live bedside where you give drugs, watch their side effects, and correct them with other drugs.",
-    "type": "research",
+    "type": "medical",
     "cover": "upload",
     "cover_file": "assets/cover.jpg",
     "readme": "README.md",

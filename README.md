@@ -142,7 +142,7 @@ Checked against the literature for a 73 kg adult: theophylline half-life about 9
 
 ---
 
-An [EsaSim](https://esacode.com/) project of the workspace Gianluca De Novi's workspace (Research).
+An [EsaSim](https://esacode.com/) project of the workspace Gianluca De Novi's workspace (Medical & healthcare).
 
 ### Blueprints in this repository
 
