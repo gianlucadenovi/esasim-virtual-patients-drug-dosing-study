@@ -62,13 +62,13 @@ These factors are approximate. They follow the direction and size the literature
 
 ## Sources
 
-- **Physiology:** ICRP reference adult organ volumes and blood flows, as tabulated with PK-Sim's values in Jørgensen et al., *Modeling principles for a physiology-based whole-body model of human metabolism* (arXiv:2404.14224, Table 1).
-- **Tissue composition:** Ruark et al., *Predicting passive and active tissue:plasma partition coefficients* (2014), unified table as presented by Metrum Research Group (ACoP 2019).
+- **Physiology:** ICRP reference adult organ volumes and blood flows, as tabulated with PK-Sim's values in *Modeling principles for a physiology-based whole-body model of human metabolism* (arXiv:2404.14224, Table 1).
+- **Tissue composition:** the unified tissue composition of Ruark et al. (*Predicting passive and active tissue:plasma partition coefficients: interindividual and interspecies variability*), as presented by Metrum Research Group (ACoP 2019, Table 1).
 - **Partitioning:** Rodgers T, Rowland M. *Physiologically based pharmacokinetic modelling 2: predicting the tissue distribution of acids, very weak bases, neutrals and zwitterions.* J Pharm Sci 2006;95:1238–57.
 - **Theophylline:**
-  - Ogilvie RI. *Clinical pharmacokinetics of theophylline.* Clin Pharmacokinet 1978;3:267–93: bioavailability, Vss 0.5 L/kg, concentration–effect and toxicity thresholds.
-  - Abduljalil K, Gardner I, Jamei M. *Application of a PBPK approach to predict theophylline pharmacokinetics…* Front Pediatr 2022: renal clearance 0.31 L/h, about 85 % metabolic, CYP1A2 about 88 %.
-  - Jusko WJ et al. *Factors affecting theophylline clearances: age, tobacco, marijuana, cirrhosis, congestive heart failure, obesity….* J Pharm Sci 1979.
+  - *Clinical pharmacokinetics of theophylline.* Clin Pharmacokinet 1978;3:267–93: bioavailability, Vss 0.5 L/kg, concentration–effect and toxicity thresholds.
+  - Abduljalil K, Gardner I, Jamei M. *Application of a physiologically based pharmacokinetic approach to predict theophylline pharmacokinetics using virtual non-pregnant, pregnant, fetal, breast-feeding, and neonatal populations.* Front Pediatr 2022: renal clearance 0.31 L/h, about 85 % metabolic, CYP1A2 about 88 %.
+  - Jusko WJ et al. *Factors affecting theophylline clearances: age, tobacco, marijuana, cirrhosis, congestive heart failure, obesity, oral contraceptives, benzodiazepines, barbiturates, and ethanol.* J Pharm Sci 1979;68:1358–66.
   - Physicochemical data (logP −0.02, pKa 8.6) from the PKKB database.
 - **Body composition:** Deurenberg P et al. (1991) body-fat formula; Nadler SB et al. (1962) blood volume; Mosteller (1987) body surface area.
 
@@ -91,7 +91,7 @@ An [EsaSim](https://esacode.com/) project of the workspace Gianluca De Novi's wo
 
 ### Blueprints in this repository
 
-- [1 · Virtual trial](blueprints/1-virtual-trial.json) · 8 blocks
+- [1 · Virtual trial](blueprints/1-virtual-trial.json) · 8 blocks · version 1
 - [2 · Find the dose](blueprints/2-find-the-dose.json) · 5 blocks
 - [3 · Follow one patient (3D)](blueprints/3-follow-one-patient-3d.json) · 4 blocks
 - [Maintenance · Make the 3D models](blueprints/maintenance-make-the-3d-models.json) · 1 block · version 1

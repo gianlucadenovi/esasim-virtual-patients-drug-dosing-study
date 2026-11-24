@@ -14,7 +14,7 @@
         {
             "name": "1 · Virtual trial",
             "file": "blueprints/1-virtual-trial.json",
-            "published_version": 0,
+            "published_version": 1,
             "nodes": 8
         },
         {
