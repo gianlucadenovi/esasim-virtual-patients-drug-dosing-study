@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 15 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 16 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of a drug in thousands of virtual patients: a trial of a dosing regimen, the best dose per population, and one patient followed live in 3D
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -297,13 +297,14 @@ def patients(pop, drug, route):
     fub = drug["fu"] / bp
     clint_ref = ref_cl_h * q_liver_ref / (fub * (q_liver_ref - ref_cl_h))       # per reference liver
     age_f = np.clip(1.0 - AGE_DECLINE * np.clip(pop["age"] - 30.0, 0, None), 0.45, 1.0)
-    act = pop["enzyme"] * np.where(pop["smoker"], SMOKING_FACTOR, 1.0) * np.where(pop["cirrhosis"], CIRRHOSIS_FACTOR, 1.0) \
-        * np.where(pop["chf"], CHF_FACTOR, 1.0) * age_f
+    fx = drug.get("factors", {})
+    act = pop["enzyme"] * np.where(pop["smoker"], fx.get("smoking", SMOKING_FACTOR), 1.0) \
+        * np.where(pop["cirrhosis"], fx.get("cirrhosis", CIRRHOSIS_FACTOR), 1.0) * np.where(pop["chf"], fx.get("chf", CHF_FACTOR), 1.0) * age_f
     ref_liver = np.where(pop["female"], REF["liver"][1], REF["liver"][0])
     clint = clint_ref * act * V["liver"] / REF["liver"][0] * np.where(pop["female"], REF["liver"][0] / ref_liver, 1.0)
     cl_renal = drug["cl_renal"] * pop["gfr"] / 120.0
     return {"V": V, "Q": Q, "Kp": Kp, "fu": fu, "bp": bp, "clint": clint, "clr": cl_renal, "F": drug["F"],
-            "ka": drug["ka"].get(route, 1.5)}
+            "ka": drug["ka"].get(route, 1.5), "k": drug.get("unit_k", 1.0)}
 
 
 def _vss(kp, V, vblood, bp):
@@ -394,9 +395,9 @@ def simulate(m, doses, days, torch, dev, dt=0.1, F=None, infusion_h=0.5, per_kg=
                 stops.setdefault(k + inf_steps, []).append(r)
         for r in stops.pop(k, ()):
             rate = rate - r
-        plasma[:, k] = (x[:, IX["venous"]] / vv / m["bp"]).float()
+        plasma[:, k] = (x[:, IX["venous"]] / vv / m["bp"] * m["k"]).float()
         if keep_tissues:
-            tissue[:, k] = (x[:, :len(TISSUES)] / Vt).float()
+            tissue[:, k] = (x[:, :len(TISSUES)] / Vt * m["k"]).float()
         x = torch.bmm(Phi, x[:, :, None])[:, :, 0] + Gam * rate[:, None]
     return plasma, tissue
 
@@ -762,7 +763,9 @@ def settings(ctx):
     p = ctx.params
     drug = DRUGS[str(p.get("drug") or "Theophylline")]
     target = str(p.get("target") or TARGETS[0])
-    lo, hi = drug["range"].get(target, drug["range"][TARGETS[0]])
+    lo, hi = drug["range"].get(target, next(iter(drug["range"].values())))
+    if target not in drug["range"]:
+        target = next(iter(drug["range"]))
     route = str(p.get("route") or ROUTES[0])
     return {
         "drug": drug, "drug_name": str(p.get("drug") or "Theophylline"),
@@ -919,7 +922,8 @@ def dose_run(ctx):
     import torch
     s = settings(ctx)
     dev, label = device(ctx)
-    steps = np.arange(1, 81) * (0.5 if s["per_kg"] else 25.0)       # (25 mg to 2 g, or 0.5 to 40 mg/kg, a dose)
+    a, b, st = s["drug"].get("dose_steps", (25.0, 2000.0, 25.0))
+    steps = np.arange(1, 81) * 0.5 if s["per_kg"] else np.arange(a, b + st / 2, st)     # (the drug's doses, or 0.5-40 mg/kg)
     max_toxic = float(ctx.params.get("max_toxic_pct") or 5.0) / 100.0
     toxic = s["drug"]["toxic"][0][0]
     pops = list(POPULATIONS) if str(ctx.params.get("population_scope") or "All populations").startswith("All") else [s["population"]]
