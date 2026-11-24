@@ -28,6 +28,13 @@
             "in": "repo"
         },
         {
+            "path": "patient-turn.js",
+            "size": 1610,
+            "sha256": "a9de8450b5750b6983aa4cddeaf91d267e02c2bc28773e8936b64e832d81f2d6",
+            "zip": "assets/patient-turn.js",
+            "in": "repo"
+        },
+        {
             "path": "patient.glb",
             "size": 12151636,
             "sha256": "e8b60dfcf4161ce09e7eb1d36b9a78506c5613a5c07618af5af05e51a7449ed5",
@@ -49,5 +56,5 @@
             "in": "repo"
         }
     ],
-    "saved": "2026-11-24T23:29:14+00:00"
+    "saved": "2026-11-24T23:31:27+00:00"
 }
