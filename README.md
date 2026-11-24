@@ -223,7 +223,7 @@ An [EsaSim](https://esacode.com/) project of the workspace Gianluca De Novi's wo
 
 ### Workspace blocks it uses
 
-- [Virtual patients (PBPK dosing)](blocks/ws-virtual-patients-pbpk-dosing) · version 45
+- [Virtual patients (PBPK dosing)](blocks/ws-virtual-patients-pbpk-dosing) · version 46
 - [Bedside monitor](blocks/ws-bedside-monitor) · version 2
 - [Model files (preview and download)](blocks/ws-model-files-preview-and-download) · version 1
 
@@ -236,7 +236,7 @@ The files the project's views draw with (3D models, textures, sounds), in [asset
 - [patient split.glb](assets/patient%20split.glb) · 12 MB
 - [patient-turn.js](assets/patient-turn.js) · 1.6 KB
 - [patient.glb](assets/patient.glb) · 12 MB
-- [patient.scene.json](assets/patient.scene.json) · 7.4 KB
+- [patient.scene.json](assets/patient.scene.json) · 8.1 KB
 - [universfield-heartbeat-single-383748.mp3](assets/universfield-heartbeat-single-383748.mp3) · 35 KB
 
 Keys pasted in blocks (secret settings) are not saved here, nor are the team and the results of runs.

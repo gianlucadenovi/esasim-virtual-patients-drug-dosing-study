@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 45 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 46 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -1704,7 +1704,7 @@ def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
                 {"type": "panel", "title": "Where the chosen drug is", "style": "clean", "css": "width:210px;max-width:none;margin-top:10px", "items": [
                     {"type": "text", "text": "@patient.focus_txt", "size": "small"},
                     {"type": "text", "text": "@patient.why", "color": "#9aa3b2", "size": "small"}] + organs + legend}]},
-            {"type": "panel", "at": "right", "title": "Side effects", "css": "width:250px;max-width:none;text-align:left", "items": [
+            {"type": "panel", "at": "top-right", "title": "Side effects", "css": "top:48px;width:250px;max-width:none;text-align:left", "items": [
                 {"type": "text", "text": "@patient.se_none", "color": "#9aa3b2", "size": "small"}] + [
                 {"type": "text", "text": "@patient.se%d" % k, "color": "#ffb4a8", "size": "small"} for k in range(7)]},
             {"type": "events", "at": "bottom-right", "count": 4}]})
