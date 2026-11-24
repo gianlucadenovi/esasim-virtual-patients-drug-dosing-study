@@ -139,7 +139,7 @@ The files the project's views draw with (3D models, textures, sounds), in [asset
 - [covers/fda-project-optimus-selecting-optimal-dose-oncology.webp](assets/covers/fda-project-optimus-selecting-optimal-dose-oncology.webp) · 355 KB
 - [hasin2004-deep-breath-247459.mp3](assets/hasin2004-deep-breath-247459.mp3) · 148 KB
 - [patient.glb](assets/patient.glb) · 12 MB
-- [patient.scene.json](assets/patient.scene.json) · 5.4 KB
+- [patient.scene.json](assets/patient.scene.json) · 7.1 KB
 - [universfield-heartbeat-single-383748.mp3](assets/universfield-heartbeat-single-383748.mp3) · 35 KB
 
 Keys pasted in blocks (secret settings) are not saved here, nor are the team and the results of runs.
