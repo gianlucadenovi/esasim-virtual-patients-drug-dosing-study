@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 30 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 31 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -1323,8 +1323,8 @@ def bedside_run(ctx):
     import torch
     rng = np.random.default_rng(int(time.time() * 1000) % (2 ** 31))
     focus = str(ctx.params.get("drug") or "Theophylline")
-    patient = str(ctx.params.get("bedside_patient") or "Elderly woman 84")
-    patient = patient if patient in PROFILES else "Elderly woman 84"
+    patient = str(ctx.params.get("bedside_patient") or REFERENCE)
+    patient = patient if patient in PROFILES else REFERENCE
     minutes = float(ctx.params.get("bedside_minutes") or 20.0)
     b = Bedside(patient, rng, torch)
     clocks = {"15 min per second": 0.25, "1 h per second": 1.0, "4 h per second": 4.0, "12 h per second": 12.0}
@@ -1359,7 +1359,7 @@ def bedside_run(ctx):
         nonlocal b, focus, speed, state, rhythm_was, sed_was, alarms_was, pain_was, nausea_was
         name = str(name).strip().lower()
         if name in ("patient", "start again", "restart") and (value in PROFILES or name != "patient"):
-            b = Bedside(value if value in PROFILES else b.patient_name, rng, torch, b.t)
+            b = Bedside(value if value in PROFILES else b.patient_name, rng, torch)      # (the clock from Day 1 00:00)
             state, rhythm_was, sed_was, alarms_was, pain_was, nausea_was = {}, None, None, (), None, None
             ctx.telemetry("events", {"text": "─── new patient ───"})
             intro()
@@ -1391,6 +1391,7 @@ def bedside_run(ctx):
     intro()
     b.course(focus)
     t0, deadline, tick, done = time.time(), time.time() + minutes * 60.0, 0, False
+    elapsed, given = 0.0, []                     # (hours simulated since the bedside opened, across restarts: the charts' time; the drugs given)
     beat, breath, last = 0.0, 0.0, time.time()   # (heartbeats and breaths counted in real time at the live rates: the 3D view's heart, lungs and sounds)
     while time.time() < deadline and not done:
         try:
@@ -1401,7 +1402,7 @@ def bedside_run(ctx):
             d = msg.get("data") if isinstance(msg, dict) else None
             if isinstance(d, dict) and "control" in d:
                 done = handle(d["control"], d.get("value")) or done
-        b.advance(speed / fps, on_dose)
+        elapsed += b.advance(speed / fps, on_dose)
         C = {n: c.effect() for n, c in b.drugs.items()}
         v = vitals(C, b.base, b.extra)
         fc = b.course(focus)
@@ -1418,7 +1419,7 @@ def bedside_run(ctx):
         beat += (now_s - last) * v["hr"] / 60.0 * (1.0 - 0.5 * v["dropped"])
         breath += (now_s - last) * v["rr"] / 60.0
         last = now_s
-        item = {"t_h": round(h, 2), "day": clock(h), "beat": round(beat, 3), "breath": round(breath, 3), "who": b.patient_name, "patient": b.patient_name, "drug": focus,
+        item = {"t_h": round(elapsed, 2), "day": clock(h), "beat": round(beat, 3), "breath": round(breath, 3), "who": b.patient_name, "patient": b.patient_name, "drug": focus,
                 "dose": b.dose_x.get(focus, 1.0), "regular": fc.regular, "clock": next((k for k, x in clocks.items() if x == speed), ""), "unit": unit, "hr": v["hr"], "rr": v["rr"], "glass": "#0a1626",
                 "focus_txt": "%s: plasma %s %s (target %g-%g) · a healthy adult: %s %s" % (focus, fmt % cp, unit, lo, hi, fmt % cref, unit),
                 "why": "%s: clearance %.1f L/h, half-life %.1f h (healthy adult %.1f h)" % (focus, cl[0], half[0], half[1])}
@@ -1435,10 +1436,14 @@ def bedside_run(ctx):
             if p > dl * 0.02 or c.regular or c.rate[0] > 0:
                 lines.append("%s %s %s · %s%s" % (name, f2 % p, c.d["unit"], st, " · regular" if c.regular else ""))
             item["lvl_" + slug(name)] = round(100.0 * p / dh, 1)
+            if name not in given:
+                given.append(name)
             was = state.get(name)
             if was is not None and st != was:
                 say("%s %s %s: %s." % (name, f2 % p, c.d["unit"], st))
             state[name] = st
+        for name in given:                   # (a drug of a patient before Start again: 0 on the chart)
+            item.setdefault("lvl_" + slug(name), 0.0)
         for k in range(6):
             item["d%d" % k] = lines[k] if k < len(lines) else ""
         if not lines:
