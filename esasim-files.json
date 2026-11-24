@@ -14,6 +14,13 @@
             "in": "repo"
         },
         {
+            "path": "heartbeat.mp3",
+            "size": 4847,
+            "sha256": "4fca7d12af4eda2c285771584cd471c45cb88e91548cd9aa92c6f92c703bdbab",
+            "zip": "assets/heartbeat.mp3",
+            "in": "repo"
+        },
+        {
             "path": "patient.glb",
             "size": 12151636,
             "sha256": "e8b60dfcf4161ce09e7eb1d36b9a78506c5613a5c07618af5af05e51a7449ed5",
@@ -42,5 +49,5 @@
             "in": "repo"
         }
     ],
-    "saved": "2026-11-24T22:25:07+00:00"
+    "saved": "2026-11-24T22:28:31+00:00"
 }

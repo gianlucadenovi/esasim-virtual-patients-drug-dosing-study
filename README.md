@@ -118,6 +118,7 @@ An [EsaSim](https://esacode.com/) project of the workspace Gianluca De Novi's wo
 The files the project's views draw with (3D models, textures, sounds), in [assets/](assets/):
 
 - [covers/fda-project-optimus-selecting-optimal-dose-oncology.webp](assets/covers/fda-project-optimus-selecting-optimal-dose-oncology.webp) · 355 KB
+- [heartbeat.mp3](assets/heartbeat.mp3) · 4.7 KB
 - [patient.glb](assets/patient.glb) · 12 MB
 - [patient.scene.json](assets/patient.scene.json) · 4.3 KB
 - [platform.glb](assets/platform.glb) · 40 KB
