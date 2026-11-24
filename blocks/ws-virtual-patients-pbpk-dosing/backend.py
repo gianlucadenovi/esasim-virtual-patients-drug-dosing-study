@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 38 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 40 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -1191,6 +1191,44 @@ def vitals(C, b, extra):
             "effects": ", ".join(notes) or "none", "alarms": alarms}
 
 
+def advice(v, C, b):
+    """what to look at or try next, from the vitals and the drugs on board (the hint over the 3D view)"""
+    def on(n):
+        return n in b.drugs and C.get(n, 0.0) > 0.2 * next(iter(DRUGS[n]["range"].values()))[0]
+    al = v["alarms"]
+    if ("RESP LOW" in al or "SpO2 LOW" in al) and on("Morphine"):
+        return "Morphine is slowing the breathing: give Naloxone (its effect is short: watch for it coming back)."
+    if ("RESP LOW" in al or "SpO2 LOW" in al or v["sedation"] >= 5) and on("Midazolam"):
+        return "Midazolam is sedating too deeply: give Flumazenil, or turn Regular off."
+    if v["airway"] != "clear" and on("Propranolol"):
+        return "Propranolol is narrowing the airways: stop it (Stop all) and give Salbutamol."
+    if "SpO2 LOW" in al and v["airway"] != "clear":
+        return "The airways are narrowed: give Salbutamol (or Theophylline)."
+    if "ARRHYTHMIA" in al and on("Digoxin") or ("HR LOW" in al and on("Digoxin")):
+        return "Digoxin is slowing the heart (heart block): give Atropine and turn Regular off."
+    if "HR LOW" in al:
+        return "The heart is slow: Atropine speeds it up."
+    if "HR HIGH" in al or "ARRHYTHMIA" in al:
+        cause = next((n for n in ("Theophylline", "Salbutamol", "Atropine", "Amlodipine") if on(n)), None)
+        return ("The heart is racing%s: Propranolol slows it (not in asthma), or stop the drug." % (
+            " (%s)" % cause.lower() if cause else ""))
+    if "BP LOW" in al:
+        return "Blood pressure is low: stop the drugs that lower it (Stop all) and wait."
+    if "QTc LONG" in al:
+        return "The QTc is long: avoid more Ondansetron; with Digoxin, turn Regular off."
+    if v["nausea"] in ("moderate", "severe"):
+        return "The patient feels sick: give Ondansetron."
+    if v["pain"] >= 4:
+        return "Pain %g/10: give Morphine, or Paracetamol for milder pain." % round(v["pain"])
+    if v["temp"] >= 38.0:
+        return "Fever: give Paracetamol."
+    if v["airway"] != "clear":
+        return "Wheeze: give Salbutamol or Theophylline."
+    if not b.drugs or not any(on(n) for n in b.drugs):
+        return "Choose a drug below and press Give dose (or Regular for the usual regimen), then watch the monitor."
+    return "Stable. Raise the dose (Dose ×), add another drug, or make the clock faster and watch it build up."
+
+
 class DrugCourse:
     """one drug in the patient: its own exact linear model (the drugs do not change one another's kinetics here)"""
 
@@ -1355,6 +1393,11 @@ def bedside_run(ctx):
             return                                                           # (a continuous infusion)
         say("%s %g mg %s (regular, every %g h)." % (name, mg, how(kind, over), every))
 
+    shown = {"text": "", "until": 0.0}           # (a message across the 3D view for a few seconds: what a control just did)
+
+    def flash(text):
+        shown["text"], shown["until"] = text, time.time() + 3.5
+
     def handle(name, value):
         nonlocal b, focus, speed, state, rhythm_was, sed_was, alarms_was, pain_was, nausea_was
         name = str(name).strip().lower()
@@ -1363,12 +1406,15 @@ def bedside_run(ctx):
             state, rhythm_was, sed_was, alarms_was, pain_was, nausea_was = {}, None, None, (), None, None
             ctx.telemetry("events", {"text": "─── new patient ───"})
             intro()
+            flash("Started again: %s, Day 1, no drugs" % b.patient_name)
         elif name == "drug" and value in DRUGS:
             focus = value
+            flash("%s chosen: press Give dose" % focus)
         elif name == "give":
             mg, kind = b.give(focus)
             over = DRUGS[focus]["give"][2]
             say("%s %g mg %s." % (focus, mg, how(kind, over)))
+            flash("%s %g mg %s given" % (focus, mg, how(kind, over)))
         elif name == "regular":
             b.set_regular(focus, bool(value))
             mg, every, kind, over = DRUGS[focus]["regular"]
@@ -1376,12 +1422,14 @@ def bedside_run(ctx):
                 say("%s infusion started: %g mg/h." % (focus, mg * b.dose_x.get(focus, 1.0) / every))
             elif not value:
                 say("%s: regular doses stopped." % focus)
+            flash("%s: regular doses %s" % (focus, "on" if value else "off"))
         elif name == "dose":
             b.dose_x[focus] = max(0.0, float(value))
             say("%s dose set to %g%% of the usual." % (focus, round(100 * b.dose_x[focus])))
         elif name in ("stop all", "stop all drugs", "stop_all"):
             b.stop_all()
             say("All drugs stopped.")
+            flash("All drugs stopped")
         elif name == "clock":
             speed = clocks.get(str(value), speed)
         elif name in ("finish now", "finish", "stop"):
@@ -1419,7 +1467,8 @@ def bedside_run(ctx):
         beat += (now_s - last) * v["hr"] / 60.0 * (1.0 - 0.5 * v["dropped"])
         breath += (now_s - last) * v["rr"] / 60.0
         last = now_s
-        item = {"t_h": round(elapsed, 2), "day": clock(h), "beat": round(beat, 3), "breath": round(breath, 3), "who": b.patient_name, "patient": b.patient_name, "drug": focus,
+        banner = shown["text"] if now_s < shown["until"] else ""
+        item = {"hint": advice(v, C, b), "banner": banner, "banner_on": bool(banner), "t_h": round(elapsed, 2), "day": clock(h), "beat": round(beat, 3), "breath": round(breath, 3), "who": b.patient_name, "patient": b.patient_name, "drug": focus,
                 "dose": b.dose_x.get(focus, 1.0), "regular": fc.regular, "clock": next((k for k, x in clocks.items() if x == speed), ""), "unit": unit, "hr": v["hr"], "rr": v["rr"], "glass": "#0a1626",
                 "focus_txt": "%s: plasma %s %s (target %g-%g) · a healthy adult: %s %s" % (focus, fmt % cp, unit, lo, hi, fmt % cref, unit),
                 "why": "%s: clearance %.1f L/h, half-life %.1f h (healthy adult %.1f h)" % (focus, cl[0], half[0], half[1])}
@@ -1560,6 +1609,8 @@ def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
              "options": ["15 min/s", "1 h/s", "4 h/s", "12 h/s"], "value": "1 h/s"},
             {"type": "button", "label": "Start again", "send": "start again"}],
         "overlay": [
+            {"type": "panel", "at": "top", "items": [{"type": "text", "text": "@patient.hint", "color": "#ffe08a"}]},
+            {"type": "caption", "at": "center", "text": "@patient.banner", "visible": "@patient.banner_on", "style": "broadcast"},
             {"type": "panel", "at": "top-left", "title": "Virtual patient", "items": [
                 {"type": "text", "text": "@patient.who"},
                 {"type": "text", "text": "@patient.day", "size": "large"},
