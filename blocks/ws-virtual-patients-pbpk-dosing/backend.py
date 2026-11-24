@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 37 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 38 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -1504,6 +1504,7 @@ def bedside_run(ctx):
 # ── the 3D view's files ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 HEART_SOUND = "universfield-heartbeat-single-383748.mp3"     # (the project's assets: one heartbeat, one deep breath)
 BREATH_SOUND = "hasin2004-deep-breath-247459.mp3"
+TURN_SCRIPT = "patient-turn.js"        # (an asset: the mouse turns the patient instead of moving the camera)
 
 
 def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
@@ -1544,6 +1545,7 @@ def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
                    {"type": "ambient", "intensity": 0.3, "color": "#9fb4ff"}],
         "models": [{"id": "patient", "model": prefix + "patient.glb", "up": "z", "position": [round(v, 4) for v in offset],
                     "materials": mats, "parts": parts}],
+        "scripts": [prefix + TURN_SCRIPT],
         "sounds": [{"id": "heartbeat", "sound": prefix + HEART_SOUND, "volume": 0.8, "on": {"expr": "%s - floor(%s) < 0.5" % (beat, beat)}},
                    {"id": "breath", "sound": prefix + BREATH_SOUND, "volume": 0.6, "on": {"expr": "%s - floor(%s) < 0.5" % (breath, breath)}}],
         "cameras": [{"id": "front", "type": "orbit", "position": [0.55, 1.45, z + 0.35], "look_at": [0, 0, z]}], "start": "front",
