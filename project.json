@@ -34,6 +34,12 @@
             "file": "blueprints/maintenance-make-the-3d-models.json",
             "published_version": 2,
             "nodes": 2
+        },
+        {
+            "name": "Temporary · patient models into storage",
+            "file": "blueprints/temporary-patient-models-into-storage.json",
+            "published_version": 0,
+            "nodes": 0
         }
     ],
     "blocks": [

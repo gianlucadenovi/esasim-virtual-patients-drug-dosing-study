@@ -106,6 +106,7 @@ An [EsaSim](https://esacode.com/) project of the workspace Gianluca De Novi's wo
 - [2 · Find the dose](blueprints/2-find-the-dose.json) · 7 blocks · version 1
 - [3 · Follow one patient (3D)](blueprints/3-follow-one-patient-3d.json) · 4 blocks · version 1
 - [Maintenance · Make the 3D models](blueprints/maintenance-make-the-3d-models.json) · 2 blocks · version 2
+- [Temporary · patient models into storage](blueprints/temporary-patient-models-into-storage.json) · 0 blocks
 
 ### Workspace blocks it uses
 
