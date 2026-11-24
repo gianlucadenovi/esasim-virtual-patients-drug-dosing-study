@@ -98,6 +98,6 @@ An [EsaSim](https://esacode.com/) project of the workspace Gianluca De Novi's wo
 
 ### Workspace blocks it uses
 
-- [Virtual patients (PBPK dosing)](blocks/ws-virtual-patients-pbpk-dosing) · version 8
+- [Virtual patients (PBPK dosing)](blocks/ws-virtual-patients-pbpk-dosing) · version 9
 
 Keys pasted in blocks (secret settings) are not saved here. Datasets, results and the team stay in EsaSim.
