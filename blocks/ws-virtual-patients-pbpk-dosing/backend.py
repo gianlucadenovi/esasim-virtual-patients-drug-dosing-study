@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 32 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 33 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -1551,12 +1551,11 @@ def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
             {"type": "select", "name": "drug", "label": "Drug", "options": list(DRUGS)},
             {"type": "slider", "name": "dose", "label": "Dose ×", "min": 0.25, "max": 4, "value": 1, "step": 0.25},
             {"type": "button", "label": "Give dose", "send": "give"},
-            {"type": "toggle", "name": "regular", "label": "Regular doses"},
-            {"type": "button", "label": "Stop all drugs", "send": "stop all"},
+            {"type": "toggle", "name": "regular", "label": "Regular"},
+            {"type": "button", "label": "Stop all", "send": "stop all"},
             {"type": "select", "name": "clock", "label": "Clock",
              "options": ["15 min per second", "1 h per second", "4 h per second", "12 h per second"], "value": "1 h per second"},
-            {"type": "button", "label": "Start again", "send": "start again"},
-            {"type": "button", "label": "Finish now", "send": "finish now"}],
+            {"type": "button", "label": "Start again", "send": "start again"}],
         "overlay": [
             {"type": "panel", "at": "top-left", "title": "Virtual patient", "items": [
                 {"type": "text", "text": "@patient.who"},
