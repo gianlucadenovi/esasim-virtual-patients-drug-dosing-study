@@ -3,10 +3,10 @@
         "kind": "blueprint",
         "flow_id": 106
     },
-    "name": "3 · Follow one patient (3D)",
+    "name": "3 · Bedside: one patient, live (3D)",
     "description": "One virtual patient on the regimen, live: each organ coloured by the drug's concentration in it, the heart beating, the doses and the moments the plasma level leaves the target range.",
-    "published_version": 2,
-    "updated": "2026-11-24 21:55:50",
+    "published_version": 3,
+    "updated": "2026-11-24 22:21:41",
     "graph": {
         "nodes": [
             {
@@ -15,20 +15,13 @@
                 "x": -680,
                 "y": -180,
                 "params": {
-                    "mode": "Follow one patient (3D)",
-                    "population": "Mixed clinical population",
-                    "patients": 2000,
-                    "route": "Oral (immediate release)",
-                    "dose_mg": 300,
-                    "dose_basis": "mg",
-                    "interval_h": 12,
-                    "days": 4,
-                    "target": "10-20 mg/L (classic)",
-                    "follow": "The most exposed patient",
-                    "speed": 1,
-                    "seed": 1
+                    "mode": "Bedside (live)",
+                    "drug": "Theophylline",
+                    "bedside_patient": "Elderly woman, 84",
+                    "bedside_minutes": 20,
+                    "accelerator": "CPU"
                 },
-                "title": "Follow one patient"
+                "title": "The bedside"
             },
             {
                 "id": "tel",
@@ -36,9 +29,9 @@
                 "x": -320,
                 "y": -40,
                 "params": {
-                    "interval": 0.25,
-                    "channels": "patient,events",
-                    "keep": 2000
+                    "interval": 0.2,
+                    "channels": "patient,vitals,events",
+                    "keep": 3000
                 },
                 "title": "The patient, live"
             },
@@ -46,7 +39,7 @@
                 "id": "view",
                 "type": "scene-3d",
                 "x": 100,
-                "y": -180,
+                "y": -260,
                 "params": {
                     "scene": "patient.scene.json",
                     "quality": "high",
@@ -57,19 +50,30 @@
                 "title": "The patient (3D)"
             },
             {
+                "id": "monitor",
+                "type": "ws-bedside-monitor",
+                "x": 100,
+                "y": 0,
+                "params": {
+                    "channel": "vitals",
+                    "control_channel": "bedside"
+                },
+                "title": "Bedside monitor"
+            },
+            {
                 "id": "plasma",
                 "type": "chart",
                 "x": 100,
-                "y": 120,
+                "y": 220,
                 "params": {
                     "kind": "line",
                     "x": "t_h",
-                    "y": "plasma,brain,liver,muscle,adipose",
+                    "y": "plasma,ref_plasma",
                     "channel": "patient",
                     "ymin": "0",
-                    "title": "Plasma and organs (mg/L in balance) over time (h)"
+                    "title": "Plasma level: this patient (plasma) and a healthy adult on the same drug (ref_plasma), over time (h)"
                 },
-                "title": "Concentrations"
+                "title": "This patient vs a healthy adult"
             }
         ],
         "edges": [
@@ -93,6 +97,17 @@
                 "to": {
                     "node": "view",
                     "port": "data"
+                }
+            },
+            {
+                "id": "tel.stream>monitor.stream",
+                "from": {
+                    "node": "tel",
+                    "port": "stream"
+                },
+                "to": {
+                    "node": "monitor",
+                    "port": "stream"
                 }
             },
             {
