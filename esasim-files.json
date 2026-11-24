@@ -29,25 +29,11 @@
         },
         {
             "path": "patient.scene.json",
-            "size": 4493,
-            "sha256": "5fb584e3da6254a648c963a01221ff89264f29a67c46bafc30f3b71e687c1577",
+            "size": 6485,
+            "sha256": "42b716ff47a6db58d01f02120cab3748bc15fd24840966fb35faf735ea714e14",
             "zip": "assets/patient.scene.json",
-            "in": "repo"
-        },
-        {
-            "path": "platform.glb",
-            "size": 41272,
-            "sha256": "e9c6fd7c65402e2c03a9769609ec6683fea4b175c747e8598bd88b84aba37e4f",
-            "zip": "assets/platform.glb",
-            "in": "repo"
-        },
-        {
-            "path": "ring.glb",
-            "size": 22488,
-            "sha256": "f974f85c775873fe2e844e5ef71287d59d6887cf355934a42cc2989bd43f5359",
-            "zip": "assets/ring.glb",
             "in": "repo"
         }
     ],
-    "saved": "2026-11-24T22:31:06+00:00"
+    "saved": "2026-11-24T22:50:10+00:00"
 }
