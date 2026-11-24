@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 34 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 35 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -1516,6 +1516,7 @@ def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
     for t in ORGAN_VIEW:
         if t != "skin":
             mats[t] = {"color": "@patient.c_%s" % t, "emissive": "@patient.g_%s" % t}
+    mats["bone"]["opacity"] = 1      # (one see-through layer fewer: see-through layers are drawn in an order that flips as the body turns)
     mats["arterial"] = {"color": "@patient.c_blood", "emissive": "@patient.g_blood"}
     mats["venous"] = {"color": "@patient.c_blood", "emissive": "@patient.g_blood"}
     # the heart contracts as the recording's first sound plays (0.2-0.35 s into it); the lungs fill while its breath is
