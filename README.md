@@ -89,10 +89,11 @@ After each control a message appears across the middle of the 3D view for a few 
 ### Reading the windows
 
 **The 3D patient**
-- **Organ colours**: how much of the chosen drug each organ holds, on a log scale from indigo (hardly any) through violet, magenta and orange to pale yellow (the most). The legend on the left gives the levels for the drug chosen, with each organ's own level above it.
+- **Organ colours**: how much of the chosen drug each organ holds, on a log scale from indigo (hardly any) through violet, magenta and orange to pale yellow (the most).
+- **The organ bars** (left): the same scale as the colours, one bar per organ, from 0% (hardly any) to 100% (the most). The scale under the bars gives what 0%, 25%, 50%, 75% and 100% mean in the drug's unit (mg/L or ng/mL); it changes with the drug chosen.
 - **Glow**: the gut while it absorbs a dose, the liver and the kidneys while they clear the drug.
 - **The heart** contracts on every beat the model counts at the live heart rate (a dropped beat in heart block is skipped), with the heartbeat sound. **The lungs and the ribcage** rise on every breath at the live breathing rate, with the breath sound: a slow, shallow patient breathes visibly slower.
-- **Top left**: the patient, the day and time, and the drugs on board with their levels (*in range*, *low*, *high* or the toxic effect). **Left**: the chosen drug's plasma level against its target and a healthy adult's, this patient's clearance and half-life against a healthy adult's, and how much has been absorbed and cleared by the liver and kidneys. **Bottom right**: the events, as they happen.
+- **Top left**: the patient, the day and time, and the drugs on board with their levels (*in range*, *low*, *high* or the toxic effect). **Left**, above the bars: the chosen drug's plasma level against its target and a healthy adult's, this patient's clearance and half-life against a healthy adult's, and how much has been absorbed and cleared by the liver and kidneys. **Bottom right**: the events, as they happen.
 
 **The bedside monitor**
 - The ECG, pulse oximetry (pleth) and breathing waveforms, drawn in real time at the patient's current rates. Ectopic beats, dropped beats and a long QT show on the ECG.
