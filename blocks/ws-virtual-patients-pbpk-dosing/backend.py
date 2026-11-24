@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 17 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 18 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of three drugs in thousands of virtual patients: trials, the best dose per population, and a live bedside with vitals and a 3D patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -987,8 +987,8 @@ REFERENCE = "Healthy man, 35"
 TISSUE_LABEL = {"brain": "Brain", "heart": "Heart", "lung": "Lungs", "liver": "Liver", "gut": "Gut", "kidney": "Kidneys",
                 "muscle": "Muscle", "adipose": "Fat", "bone": "Bone", "spleen": "Spleen", "pancreas": "Pancreas", "skin": "Skin"}
 # the organs' colours: how much drug each holds, on a log scale from a fifth of the target range's low end to one and
-# a half times the first toxic level (dark violet: hardly any; through magenta and orange to pale yellow: the most)
-SCALE = [(0.0, (0.05, 0.04, 0.16)), (0.25, (0.25, 0.10, 0.45)), (0.5, (0.65, 0.18, 0.50)), (0.75, (0.98, 0.50, 0.25)),
+# a half times the first toxic level (indigo: hardly any; through violet, magenta and orange to pale yellow: the most)
+SCALE = [(0.0, (0.27, 0.27, 0.66)), (0.25, (0.38, 0.17, 0.66)), (0.5, (0.78, 0.22, 0.55)), (0.75, (0.98, 0.50, 0.25)),
          (1.0, (0.99, 0.95, 0.65))]
 
 
