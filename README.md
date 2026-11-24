@@ -36,7 +36,7 @@
 
 ## What you get
 
-- On the **View** page: *Summary* (1 · Virtual trial), *Outcome (%, mg/L, h)* (1 · Virtual trial), *Concentration over time* (1 · Virtual trial), *By group* (1 · Virtual trial), *Spread* (1 · Virtual trial), *Patients* (1 · Virtual trial), *Groups* (1 · Virtual trial).
+- On the **View** page: *Summary* (1 · Virtual trial), *Outcome (%, mg/L, h)* (1 · Virtual trial), *Concentration over time* (1 · Virtual trial), *By group* (1 · Virtual trial), *Spread* (1 · Virtual trial), *Patients* (1 · Virtual trial), *Groups* (1 · Virtual trial), *The dose for each population* (2 · Find the dose), *Best dose* (2 · Find the dose), *In range by dose* (2 · Find the dose), *Toxic peaks by dose* (2 · Find the dose), *The patient, live* (3 · Follow one patient (3D)).
 
 <!-- esasim: files of the project -->
 
@@ -47,8 +47,8 @@ An [EsaSim](https://esacode.com/) project of the workspace Gianluca De Novi's wo
 ### Blueprints in this repository
 
 - [1 · Virtual trial](blueprints/1-virtual-trial.json) · 8 blocks
-- [2 · Find the dose](blueprints/2-find-the-dose.json) · 0 blocks
-- [3 · Follow one patient (3D)](blueprints/3-follow-one-patient-3d.json) · 0 blocks
+- [2 · Find the dose](blueprints/2-find-the-dose.json) · 5 blocks
+- [3 · Follow one patient (3D)](blueprints/3-follow-one-patient-3d.json) · 4 blocks
 - [Maintenance · Make the 3D models](blueprints/maintenance-make-the-3d-models.json) · 1 block · version 1
 
 ### Workspace blocks it uses

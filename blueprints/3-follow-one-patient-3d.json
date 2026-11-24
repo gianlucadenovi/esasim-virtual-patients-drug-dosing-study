@@ -6,10 +6,110 @@
     "name": "3 · Follow one patient (3D)",
     "description": "One virtual patient on the regimen, live: each organ coloured by the drug's concentration in it, the heart beating, the doses and the moments the plasma level leaves the target range.",
     "published_version": 0,
-    "updated": "2026-11-24 20:15:08",
+    "updated": "2026-11-24 20:15:45",
     "graph": {
-        "nodes": [],
-        "edges": [],
-        "notes": []
+        "nodes": [
+            {
+                "id": "follow",
+                "type": "ws-virtual-patients-pbpk-dosing",
+                "x": -500,
+                "y": 0,
+                "params": {
+                    "mode": "Follow one patient (3D)",
+                    "population": "Mixed clinical population",
+                    "patients": 2000,
+                    "route": "Oral (immediate release)",
+                    "dose_mg": 300,
+                    "dose_basis": "mg",
+                    "interval_h": 12,
+                    "days": 4,
+                    "target": "10-20 mg/L (classic)",
+                    "follow": "The most exposed patient",
+                    "speed": 1,
+                    "seed": 1
+                },
+                "title": "Follow one patient"
+            },
+            {
+                "id": "tel",
+                "type": "telemetry",
+                "x": -100,
+                "y": 0,
+                "params": {
+                    "interval": 0.25,
+                    "channels": "patient,events",
+                    "keep": 2000
+                },
+                "title": "The patient, live"
+            },
+            {
+                "id": "view",
+                "type": "scene-3d",
+                "x": 300,
+                "y": -200,
+                "params": {
+                    "scene": "models/patient.scene.json",
+                    "quality": "high",
+                    "overlay": true,
+                    "controls": "button Finish now",
+                    "control_channel": "control"
+                },
+                "title": "The patient (3D)"
+            },
+            {
+                "id": "plasma",
+                "type": "chart",
+                "x": 300,
+                "y": 220,
+                "params": {
+                    "kind": "line",
+                    "x": "t_h",
+                    "y": "plasma,brain,liver,muscle,adipose",
+                    "channel": "patient",
+                    "ymin": "0",
+                    "title": "Plasma and organs (mg/L in balance) over time (h)"
+                },
+                "title": "Concentrations"
+            }
+        ],
+        "edges": [
+            {
+                "id": "follow.telemetry>tel.from",
+                "from": {
+                    "node": "follow",
+                    "port": "telemetry"
+                },
+                "to": {
+                    "node": "tel",
+                    "port": "from"
+                }
+            },
+            {
+                "id": "tel.stream>view.data",
+                "from": {
+                    "node": "tel",
+                    "port": "stream"
+                },
+                "to": {
+                    "node": "view",
+                    "port": "data"
+                }
+            },
+            {
+                "id": "tel.stream>plasma.data",
+                "from": {
+                    "node": "tel",
+                    "port": "stream"
+                },
+                "to": {
+                    "node": "plasma",
+                    "port": "data"
+                }
+            }
+        ],
+        "notes": [],
+        "dash": {
+            "items": []
+        }
     }
 }

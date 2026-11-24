@@ -6,10 +6,130 @@
     "name": "2 · Find the dose",
     "description": "For every population, the dose that puts the most patients in the target range while keeping toxic peaks rare; every dose tried, as curves.",
     "published_version": 0,
-    "updated": "2026-11-24 20:15:07",
+    "updated": "2026-11-24 20:15:45",
     "graph": {
-        "nodes": [],
-        "edges": [],
-        "notes": []
+        "nodes": [
+            {
+                "id": "dose",
+                "type": "ws-virtual-patients-pbpk-dosing",
+                "x": -500,
+                "y": 0,
+                "params": {
+                    "mode": "Find the dose",
+                    "patients": 3000,
+                    "route": "Oral (immediate release)",
+                    "dose_basis": "mg",
+                    "interval_h": 12,
+                    "days": 5,
+                    "target": "10-20 mg/L (classic)",
+                    "population_scope": "All populations",
+                    "max_toxic_pct": 5,
+                    "seed": 1
+                },
+                "title": "Find the dose"
+            },
+            {
+                "id": "best_table",
+                "type": "table-view",
+                "x": 0,
+                "y": -220,
+                "params": [],
+                "title": "The dose for each population"
+            },
+            {
+                "id": "best_chart",
+                "type": "chart",
+                "x": 400,
+                "y": -220,
+                "params": {
+                    "kind": "bars",
+                    "x": "population",
+                    "y": "dose",
+                    "ymin": "0",
+                    "title": "The dose for each population (mg every dosing interval)"
+                },
+                "title": "Best dose"
+            },
+            {
+                "id": "in_range",
+                "type": "chart",
+                "x": 0,
+                "y": 80,
+                "params": {
+                    "kind": "line",
+                    "x": "dose",
+                    "y": "healthy_in_range,smokers_in_range,elderly_in_range,cirrhosis_in_range,heart_failure_in_range,kidney_in_range,mixed_in_range",
+                    "ymin": "0",
+                    "ymax": "100",
+                    "title": "In the target range (%) by dose (mg)"
+                },
+                "title": "In range by dose"
+            },
+            {
+                "id": "toxic",
+                "type": "chart",
+                "x": 400,
+                "y": 80,
+                "params": {
+                    "kind": "line",
+                    "x": "dose",
+                    "y": "healthy_toxic,smokers_toxic,elderly_toxic,cirrhosis_toxic,heart_failure_toxic,kidney_toxic,mixed_toxic",
+                    "ymin": "0",
+                    "ymax": "100",
+                    "title": "Toxic peaks (%) by dose (mg)"
+                },
+                "title": "Toxic peaks by dose"
+            }
+        ],
+        "edges": [
+            {
+                "id": "dose.best>best_table.data",
+                "from": {
+                    "node": "dose",
+                    "port": "best"
+                },
+                "to": {
+                    "node": "best_table",
+                    "port": "data"
+                }
+            },
+            {
+                "id": "dose.best>best_chart.data",
+                "from": {
+                    "node": "dose",
+                    "port": "best"
+                },
+                "to": {
+                    "node": "best_chart",
+                    "port": "data"
+                }
+            },
+            {
+                "id": "dose.doses>in_range.data",
+                "from": {
+                    "node": "dose",
+                    "port": "doses"
+                },
+                "to": {
+                    "node": "in_range",
+                    "port": "data"
+                }
+            },
+            {
+                "id": "dose.doses>toxic.data",
+                "from": {
+                    "node": "dose",
+                    "port": "doses"
+                },
+                "to": {
+                    "node": "toxic",
+                    "port": "data"
+                }
+            }
+        ],
+        "notes": [],
+        "dash": {
+            "items": []
+        }
     }
 }
