@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 21 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 22 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of three drugs in thousands of virtual patients: trials, the best dose per population, and a live bedside with vitals and a 3D patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-24
@@ -971,23 +971,31 @@ def hexc(rgb, k=1.0):
     return "#%02x%02x%02x" % tuple(max(0, min(255, int(round(255 * x * k)))) for x in rgb)
 
 
-# ── the bedside: one patient at a time, live, chosen and dosed from the Bedside view ─────────────────────────────────
-PRESETS = {   # name: sex, age, height (cm), weight (kg), smoker, heart failure, cirrhosis, GFR (mL/min)
-    "Healthy man, 35": ("m", 35, 178, 75, 0, 0, 0, 115),
-    "Healthy woman, 30": ("f", 30, 165, 60, 0, 0, 0, 115),
-    "Smoker, 45 (20 a day)": ("m", 45, 176, 80, 1, 0, 0, 105),
-    "Obese woman, 40 (BMI 38)": ("f", 40, 165, 103, 0, 0, 0, 110),
-    "Elderly woman, 84": ("f", 84, 158, 55, 0, 0, 0, 40),
-    "Liver cirrhosis, 58": ("m", 58, 175, 70, 0, 0, 1, 90),
-    "Heart failure, 72": ("m", 72, 172, 82, 0, 1, 0, 55),
-    "Kidney failure, 66 (GFR 20)": ("f", 66, 162, 68, 0, 0, 0, 20),
+# ── the bedside: one patient, any of the drugs, live; chosen and dosed from the 3D view's controls ───────────────────
+# A profile: sex, age, height (cm), weight (kg), smoker, heart failure, cirrhosis, GFR (mL/min), and what the person
+# brings to the bedside before any drug: pain (0-10), temperature (°C), airway narrowing (0-1, asthma), and a
+# resting heart rate if it differs from the typical one. (Illustrative people, not cases.)
+PROFILES = {
+    "Healthy man 35": dict(sex="m", age=35, h=178, w=75, gfr=115),
+    "Healthy woman 30": dict(sex="f", age=30, h=165, w=60, gfr=115),
+    "Athlete 24 (resting HR 50)": dict(sex="m", age=24, h=182, w=78, gfr=125, hr=50),
+    "Smoker 45 (20 a day)": dict(sex="m", age=45, h=176, w=80, gfr=105, smoker=1),
+    "Obese woman 40 (BMI 38)": dict(sex="f", age=40, h=165, w=103, gfr=110),
+    "Asthma attack 28": dict(sex="f", age=28, h=166, w=58, gfr=115, airway=0.55),
+    "After surgery 50 (pain 7/10)": dict(sex="m", age=50, h=177, w=84, gfr=100, pain=7.0),
+    "Pneumonia with fever 64": dict(sex="m", age=64, h=174, w=72, gfr=75, temp=39.3, pain=3.0, airway=0.2),
+    "Elderly woman 84": dict(sex="f", age=84, h=158, w=55, gfr=40),
+    "Frail man 91": dict(sex="m", age=91, h=168, w=52, gfr=28),
+    "Liver cirrhosis 58": dict(sex="m", age=58, h=175, w=70, gfr=90, cirrhosis=1),
+    "Heart failure 72": dict(sex="m", age=72, h=172, w=82, gfr=55, chf=1),
+    "Kidney failure 66 (GFR 20)": dict(sex="f", age=66, h=162, w=68, gfr=20),
     "Random patient": None,
 }
-REFERENCE = "Healthy man, 35"
+REFERENCE = "Healthy man 35"
 TISSUE_LABEL = {"brain": "Brain", "heart": "Heart", "lung": "Lungs", "liver": "Liver", "gut": "Gut", "kidney": "Kidneys",
                 "muscle": "Muscle", "adipose": "Fat", "bone": "Bone", "spleen": "Spleen", "pancreas": "Pancreas", "skin": "Skin"}
-# the organs' colours: how much drug each holds, on a log scale (tissue_scale): indigo, hardly any; through violet,
-# magenta and orange to pale yellow, the most
+# the organs' colours: how much of the chosen drug each holds, on a log scale (tissue_scale): indigo, hardly any;
+# through violet, magenta and orange to pale yellow, the most
 SCALE = [(0.0, (0.27, 0.27, 0.66)), (0.25, (0.38, 0.17, 0.66)), (0.5, (0.78, 0.22, 0.55)), (0.75, (0.98, 0.50, 0.25)),
          (1.0, (0.99, 0.95, 0.65))]
 
@@ -1001,125 +1009,156 @@ def scale_rgb(v):
     return SCALE[-1][1]
 
 
-def preset(name, rng):
-    p = PRESETS.get(name)
+def profile(name, rng):
+    """(the person as the model's arrays, the extras: pain, temperature, airway, resting heart rate)"""
+    p = PROFILES.get(name)
     if p is None:                         # (someone from the mixed clinical population)
-        one = population(1, "Mixed clinical population", rng, 0.5)
-        return {k: np.asarray(v) for k, v in one.items()}
-    sex, age, h, w, smk, chf, cir, gfr = p
-    return {"female": np.array([sex == "f"]), "age": np.array([float(age)]), "height": np.array([float(h)]),
-            "weight": np.array([float(w)]), "bmi": np.array([w / (h / 100.0) ** 2]), "smoker": np.array([bool(smk)]),
-            "chf": np.array([bool(chf)]), "cirrhosis": np.array([bool(cir)]), "gfr": np.array([float(gfr)]), "enzyme": np.array([1.0])}
+        one = {k: np.asarray(v) for k, v in population(1, "Mixed clinical population", rng, 0.5).items()}
+        return one, {"pain": float(rng.choice([0, 0, 0, 3, 6])), "temp": 36.8, "airway": float(rng.choice([0, 0, 0, 0.3]))}
+    one = {"female": np.array([p["sex"] == "f"]), "age": np.array([float(p["age"])]), "height": np.array([float(p["h"])]),
+           "weight": np.array([float(p["w"])]), "bmi": np.array([p["w"] / (p["h"] / 100.0) ** 2]),
+           "smoker": np.array([bool(p.get("smoker"))]), "chf": np.array([bool(p.get("chf"))]),
+           "cirrhosis": np.array([bool(p.get("cirrhosis"))]), "gfr": np.array([float(p["gfr"])]), "enzyme": np.array([1.0])}
+    return one, {"pain": p.get("pain", 0.0), "temp": p.get("temp", 36.8), "airway": p.get("airway", 0.0), "hr": p.get("hr")}
 
 
-def baseline_vitals(one):
-    """typical resting values for this person (illustrative: age, smoking and heart failure move them)"""
+def baseline_vitals(one, extra):
+    """typical resting values for this person (illustrative): age, smoking, heart failure, fever and asthma move them"""
     age, chf, smk = float(one["age"][0]), bool(one["chf"][0]), bool(one["smoker"][0])
-    return {"hr": 68.0 + (12.0 if chf else 0.0) + (6.0 if smk else 0.0), "sys": 115.0 + 0.5 * max(0.0, age - 30.0) - (10.0 if chf else 0.0),
-            "dia": 74.0 + 0.12 * max(0.0, age - 30.0), "rr": 14.0 + (4.0 if chf else 0.0),
-            "spo2": 98.0 - (2.0 if chf else 0.0) - (1.0 if smk else 0.0) - (1.0 if age > 75 else 0.0), "temp": 36.8}
+    fever = max(0.0, extra["temp"] - 37.0)
+    hr = extra.get("hr") or (68.0 + (12.0 if chf else 0.0) + (6.0 if smk else 0.0))
+    return {"hr": hr + 10.0 * fever, "sys": 115.0 + 0.5 * max(0.0, age - 30.0) - (10.0 if chf else 0.0),
+            "dia": 74.0 + 0.12 * max(0.0, age - 30.0), "rr": 14.0 + (4.0 if chf else 0.0) + 3.0 * fever,
+            "spo2": 98.0 - (2.0 if chf else 0.0) - (1.0 if smk else 0.0) - (1.0 if age > 75 else 0.0), "temp": extra["temp"],
+            "qtc": 410.0 + (10.0 if one["female"][0] else 0.0) + 0.3 * max(0.0, age - 40.0)}
 
 
-def vitals(name, c, ce, b):
-    """the vitals at plasma concentration c (and effect-site concentration ce) from the baseline b. The effects follow
-    the published thresholds and half-effect concentrations (see DRUGS); their exact shapes are simplified."""
-    hr, sys, dia, rr, spo2 = b["hr"], b["sys"], b["dia"], b["rr"], b["spo2"]
-    rhythm, ectopy, dropped, sedation, note = "Sinus rhythm", 0.0, 0.0, None, ""
-    if name == "Theophylline":            # (mg/L) stimulant: faster heart and breathing, ectopy, then hypotension
-        hr += 0.3 * min(c, 20.0) + 1.6 * max(0.0, c - 20.0)
-        rr += 0.25 * max(0.0, c - 20.0)
-        sys -= 1.2 * max(0.0, c - 40.0)
-        dia -= 0.8 * max(0.0, c - 40.0)
-        if c > 30:
-            rhythm, ectopy = "Atrial ectopic beats", min(0.4, 0.08 + 0.02 * (c - 30.0))
-        if c > 20:
-            note = "nausea, tremor" if c < 40 else "seizure risk"
-    elif name == "Midazolam":             # (ng/mL) sedative: lower blood pressure, slower breathing, lower SpO2
-        e = c / (c + 55.0)
-        sys *= 1.0 - 0.20 * e
-        dia *= 1.0 - 0.15 * e
-        hr *= 1.0 + 0.06 * e
-        drop = 0.45 * c * c / (c * c + 260.0 ** 2)
-        rr *= 1.0 - drop
-        spo2 -= 30.0 * max(0.0, drop - 0.15)
-        sedation = 1 + sum(c >= x for x in DRUGS["Midazolam"]["ramsay_c50"])
-        note = ["", "awake, calm", "drowsy, responds to voice", "asleep, responds to a tap", "responds only to pain",
-                "unrousable"][sedation - 1]
-    elif name == "Digoxin":               # (ng/mL, at the heart) slows the heart; toxic: block and ventricular ectopy
-        hr -= 5.0 * min(ce, 2.0) + 14.0 * max(0.0, ce - 2.0)
-        if ce > 2.0:
-            rhythm, dropped = "2nd-degree AV block", min(0.35, 0.10 * (ce - 2.0) + 0.05)
-            note = "nausea, visual disturbance"
-        if ce > 3.0:
-            rhythm, ectopy = "AV block, ventricular ectopics", min(0.4, 0.1 * (ce - 3.0) + 0.08)
-    hr = max(30.0, min(180.0, hr))
+def occ(c, ec50, n=1.0):
+    """the share of the receptors a drug occupies (Emax model with a Hill exponent)"""
+    c = max(0.0, c)
+    return c ** n / (c ** n + ec50 ** n) if c > 0 else 0.0
+
+
+def vitals(C, b, extra):
+    """the vitals from the drugs' effect-site levels C {drug: level in its unit} and the baseline b. Each drug acts
+    through a few mechanisms, so drugs add up or cancel: naloxone and flumazenil compete with morphine and midazolam,
+    propranolol blocks the heart-speeding (and airway-opening) effects of theophylline and salbutamol, atropine lifts
+    digoxin's heart block, ondansetron stops nausea but lengthens the QT interval. The half-effect levels and
+    thresholds follow the literature where it gives them (see DRUGS); the shapes of the curves are simplified."""
+    g = lambda k: C.get(k, 0.0)                                           # noqa: E731
+    beta_block = occ(g("Propranolol"), DRUGS["Propranolol"]["ec50"])
+    opioid = g("Morphine") / (g("Morphine") + DRUGS["Morphine"]["ec50"] * (1 + g("Naloxone") / DRUGS["Naloxone"]["ki"])) if g("Morphine") else 0.0
+    benzo = g("Midazolam") / (1 + g("Flumazenil") / DRUGS["Flumazenil"]["ki"])                   # (midazolam-equivalent ng/mL)
+    atro = occ(g("Atropine"), DRUGS["Atropine"]["ec50"])
+    salb = occ(g("Salbutamol"), DRUGS["Salbutamol"]["ec50"])
+    theo = g("Theophylline")
+    dig = g("Digoxin")
+    amlo = occ(g("Amlodipine"), DRUGS["Amlodipine"]["ec50"])
+    para = occ(g("Paracetamol"), DRUGS["Paracetamol"]["ec50"])
+    onda = occ(g("Ondansetron"), DRUGS["Ondansetron"]["ec50"])
+    notes = []
+    # heart rate: the sympathetic drive (theophylline, salbutamol, the reflex to amlodipine) is what beta-blockade cuts
+    sym = 0.3 * min(theo, 20.0) + 1.6 * max(0.0, theo - 20.0) + 25.0 * salb + 8.0 * amlo
+    hr = (b["hr"] + sym * (1 - 0.8 * beta_block)) * (1 - 0.336 * beta_block)
+    hr += 35.0 * atro * (1 - 0.5 * min(1.0, dig / 2.0))
+    hr -= (5.0 * min(dig, 2.0) + 14.0 * max(0.0, dig - 2.0)) * (1 - 0.7 * atro)
+    hr -= 6.0 * opioid
+    hr = max(30.0, min(190.0, hr))
+    # blood pressure
+    e_mid = benzo / (benzo + 55.0) if benzo else 0.0
+    sys = b["sys"] * (1 - 0.20 * e_mid) * (1 - 0.20 * amlo) * (1 - 0.12 * beta_block) - 10.0 * opioid - 1.2 * max(0.0, theo - 40.0)
+    dia = b["dia"] * (1 - 0.15 * e_mid) * (1 - 0.15 * amlo) * (1 - 0.08 * beta_block) - 6.0 * opioid - 0.8 * max(0.0, theo - 40.0)
+    if hr < 45:
+        sys -= (45 - hr) * 1.2
+    # airways: asthma narrows them; theophylline and salbutamol open them; propranolol narrows them in asthma
+    airway = extra["airway"]
+    if airway > 0:
+        opened = 1 - (1 - 0.75 * salb * (1 - 0.9 * beta_block)) * (1 - 0.4 * occ(theo, 10.0))
+        airway = min(1.0, airway * (1 - opened) + 0.6 * beta_block * extra["airway"] / max(extra["airway"], 0.3))
+    # breathing: opioids and benzodiazepines depress it, together more than apart; theophylline and fever drive it
+    depress = 1 - (1 - 0.45 * benzo ** 2 / (benzo ** 2 + 260.0 ** 2)) * (1 - 0.85 * opioid ** 1.3)
+    rr = (b["rr"] + 0.25 * max(0.0, theo - 20.0) + 10.0 * airway) * (1 - depress)
+    spo2 = b["spo2"] - 12.0 * airway - 30.0 * max(0.0, depress - 0.15)
+    # sedation (Ramsay): midazolam's levels for scores 2-6, opioid sedation added on top
+    sed = 1 + sum(benzo >= x for x in DRUGS["Midazolam"]["ramsay_c50"])
+    sed = min(6, sed + (2 if opioid > 0.75 else 1 if opioid > 0.45 else 0))
+    # pain, nausea, temperature, QT
+    pain = extra["pain"] * (1 - 0.85 * opioid) * (1 - 0.35 * para)
+    if g("Naloxone") > 20 and g("Morphine") > 5:
+        notes.append("abrupt opioid reversal")
+    nausea = min(1.0, max(0.0, (theo - 18.0) / 20.0) + max(0.0, (dig - 1.8) / 1.5) + 0.6 * opioid) * (1 - 0.9 * onda)
+    temp = b["temp"] - min(1.5, max(0.0, b["temp"] - 37.0)) * para
+    qtc = b["qtc"] + 25.0 * occ(g("Ondansetron"), 120.0) * 2 + 15.0 * occ(dig, 2.0)
+    # rhythm
+    rhythm, ectopy, dropped = "Sinus rhythm", 0.0, 0.0
+    if theo > 30:
+        rhythm, ectopy = "Atrial ectopic beats", min(0.4, 0.08 + 0.02 * (theo - 30.0)) * (1 - 0.7 * beta_block)
+    if dig > 2.0:
+        dropped = min(0.35, 0.10 * (dig - 2.0) + 0.05) * (1 - 0.8 * atro)
+        if dropped > 0.03:
+            rhythm = "2nd-degree AV block"
+    if dig > 3.0:
+        rhythm, ectopy = "AV block, ventricular ectopics", max(ectopy, min(0.4, 0.1 * (dig - 3.0) + 0.08))
     if rhythm == "Sinus rhythm":
         rhythm = "Sinus tachycardia" if hr > 100 else ("Sinus bradycardia" if hr < 55 else rhythm)
+    if theo > 40:
+        notes.append("seizure risk")
+    if g("Atropine") > 20:
+        notes.append("delirium, hot dry skin")
+    if salb > 0.6 or theo > 20:
+        notes.append("tremor")
     alarms = []
     for ok, what in ((hr >= 50, "HR LOW"), (hr <= 120, "HR HIGH"), (sys >= 90, "BP LOW"), (spo2 >= 92, "SpO2 LOW"),
-                     (rr >= 8, "RESP LOW"), (rr <= 26, "RESP HIGH"), (ectopy + dropped == 0, "ARRHYTHMIA")):
+                     (rr >= 8, "RESP LOW"), (rr <= 26, "RESP HIGH"), (ectopy + dropped < 0.03, "ARRHYTHMIA"), (qtc < 500, "QTc LONG")):
         if not ok:
             alarms.append(what)
-    return {"hr": round(hr), "sys": round(sys), "dia": round(dia), "map": round((sys + 2 * dia) / 3), "rr": round(max(4.0, rr)),
-            "spo2": round(max(70.0, min(100.0, spo2))), "temp": b["temp"], "rhythm": rhythm, "ectopy": round(ectopy, 3),
-            "dropped": round(dropped, 3), "sedation": sedation, "effect": note, "alarms": alarms}
+    nz = "none" if nausea < 0.15 else "mild" if nausea < 0.45 else "moderate" if nausea < 0.75 else "severe"
+    return {"hr": round(hr), "sys": round(sys), "dia": round(dia), "map": round((sys + 2 * dia) / 3), "rr": round(max(3.0, rr)),
+            "spo2": round(max(65.0, min(100.0, spo2))), "temp": round(temp, 1), "qtc": round(qtc), "rhythm": rhythm,
+            "ectopy": round(ectopy, 3), "dropped": round(dropped, 3), "sedation": sed,
+            "sedation_txt": ["awake, anxious", "awake, calm", "drowsy, responds to voice", "asleep, responds to a tap",
+                             "responds only to pain", "unrousable"][sed - 1],
+            "pain": round(pain, 1), "nausea": nz, "airway": "clear" if airway < 0.1 else "wheeze" if airway < 0.45 else "severe narrowing",
+            "effects": ", ".join(notes) or "none", "alarms": alarms}
 
 
-class Bedside:
-    """one patient and a healthy reference adult on the same drug, stepped live (exact steps of the linear model)"""
+class DrugCourse:
+    """one drug in the patient: its own exact linear model (the drugs do not change one another's kinetics here)"""
 
-    def __init__(self, drug_name, patient_name, rng, torch, start=0.0):
-        self.drug_name, self.drug = drug_name, DRUGS[drug_name]
-        bd = self.drug["bedside"]
-        self.route, self.dose, self.interval = bd["route"], bd["dose"], bd["interval"]
-        self.inf_h = bd.get("infusion_h", 0.5)
-        self.patient_name = patient_name
-        one, ref = preset(patient_name, rng), preset(REFERENCE, rng)
-        self.one = one
-        pop = {k: np.concatenate([one[k], ref[k]]) for k in one}
-        self.m = patients(pop, self.drug, self.route)
+    def __init__(self, name, pop, torch, t):
+        self.name, self.d = name, DRUGS[name]
+        self.m = patients(pop, self.d, "Oral (immediate release)")
         Phi, Gam = discretise(system_matrix(self.m), DT, torch, "cpu")
         self.Phi, self.Gam = Phi.numpy(), Gam.numpy()
-        self.x = np.zeros((2, NS))
-        self.rate = np.zeros(2)               # (mg/h into the venous blood, while an infusion runs)
-        self.infusions = []                   # [(end h, mg/h)]
-        self.t = start
-        self.carry = 0.0
-        self.next_dose = start
-        self.dose_x = 1.0
-        self.stopped = False
-        self.base = baseline_vitals(one)
-        self.cl = clearance(self.m)
-        vss = np.array([_vss({t: self.m["Kp"][t][i] for t in TISSUES}, {t: self.m["V"][t][i] for t in TISSUES},
-                             self.m["V"]["arterial"][i] + self.m["V"]["venous"][i], self.m["bp"]) for i in range(2)])
-        self.half = math.log(2) * vss / self.cl
+        n = len(self.m["clint"])
+        self.x = np.zeros((n, NS))
+        self.rate = np.zeros(n)
+        self.infusions = []
+        self.ce = np.zeros(n)
+        self.regular, self.next = False, t
+        self.cum = np.zeros(3)                # (absorbed, liver, kidneys: mg)
 
-    def give(self, mg, kind=None, over_h=None):
-        kind = kind or ("iv" if self.route.startswith("IV") else "oral")
+    def give(self, t, mg, kind, over_h):
         if kind == "oral":
             self.x[:, IX["lumen"]] += mg * self.m["F"]
         else:
-            r = mg / max(over_h or self.inf_h, DT)
-            self.rate += r
-            self.infusions.append((self.t + max(over_h or self.inf_h, DT), r))
+            h = max(over_h, DT)
+            self.rate += mg / h
+            self.infusions.append((t + h, mg / h))
 
-    def advance(self, hours, on_dose):
-        """advance by hours (whole model steps; the rest is carried to the next call); returns the hours advanced"""
-        self.carry += hours
-        steps = int(self.carry / DT + 1e-9)
-        self.carry -= steps * DT
-        for _ in range(steps):
-            if not self.stopped and self.t >= self.next_dose - 1e-9:
-                self.give(self.dose * self.dose_x)
-                on_dose(self.t, self.dose * self.dose_x)
-                self.next_dose += self.interval
-            for end, r in list(self.infusions):
-                if self.t >= end - 1e-9:
-                    self.rate -= r
-                    self.infusions.remove((end, r))
-            self.x = np.einsum("bij,bj->bi", self.Phi, self.x) + self.Gam * self.rate[:, None]
-            self.t += DT
-        return steps * DT
+    def step(self, t):
+        for end, r in list(self.infusions):
+            if t >= end - 1e-9:
+                self.rate -= r
+                self.infusions.remove((end, r))
+        m, x = self.m, self.x
+        self.cum += DT * np.array([m["ka"] * x[0, IX["lumen"]],
+                                   m["clint"][0] * m["fu"][0] / (m["Kp"]["liver"][0] * m["V"]["liver"][0]) * x[0, IX["liver"]],
+                                   m["clr"][0] / (m["Kp"]["kidney"][0] * m["V"]["kidney"][0]) * x[0, IX["kidney"]]])
+        self.x = np.einsum("bij,bj->bi", self.Phi, x) + self.Gam * self.rate[:, None]
+        ke0 = self.d.get("ke0")
+        cp = self.plasma()
+        self.ce = cp if not ke0 else self.ce + (cp - self.ce) * (1 - math.exp(-ke0 * DT))
 
     def plasma(self):
         return self.x[:, IX["venous"]] / self.m["V"]["venous"] / self.m["bp"] * self.m["k"]
@@ -1127,35 +1166,101 @@ class Bedside:
     def tissue(self, t):
         return self.x[:, IX[t]] / self.m["V"][t] * self.m["k"]
 
+    def effect(self):
+        """the level the drug acts at (patient): its effect compartment, or for digoxin the heart's own level"""
+        if self.d.get("effect_at") == "heart":
+            return float(self.tissue("heart")[0] / self.m["Kp"]["heart"][0])
+        return float(self.ce[0])
+
     def flows(self):
-        """mg/h now: absorbed from the gut, metabolised by the liver, excreted by the kidneys (the patient)"""
         m, x = self.m, self.x[0]
-        absorb = m["ka"] * x[IX["lumen"]]
-        liver = m["clint"][0] * m["fu"][0] / (m["Kp"]["liver"][0] * m["V"]["liver"][0]) * x[IX["liver"]]
-        kidney = m["clr"][0] / (m["Kp"]["kidney"][0] * m["V"]["kidney"][0]) * x[IX["kidney"]]
-        return absorb, liver, kidney
+        return (m["ka"] * x[IX["lumen"]], m["clint"][0] * m["fu"][0] / (m["Kp"]["liver"][0] * m["V"]["liver"][0]) * x[IX["liver"]],
+                m["clr"][0] / (m["Kp"]["kidney"][0] * m["V"]["kidney"][0]) * x[IX["kidney"]])
 
 
-def tissue_scale(b, lo, tox):
-    """the organs' colour scale: the plasma levels from a fifth of the target range's low end to one and a half times
-    the first toxic level, times the drug's typical tissue:plasma ratio (digoxin's tissues hold many times its plasma
-    level, theophylline's about as much)"""
-    k = float(np.median([b.m["Kp"][t][0] for t in ORGAN_VIEW]))
+class Bedside:
+    """one patient (and a healthy reference adult, for comparison) with any number of drugs on board"""
+
+    def __init__(self, patient_name, rng, torch, start=0.0):
+        self.patient_name, self.rng, self.torch = patient_name, rng, torch
+        one, self.extra = profile(patient_name, rng)
+        ref, _ = profile(REFERENCE, rng)
+        self.one = one
+        self.pop = {k: np.concatenate([one[k], ref[k]]) for k in one}
+        self.base = baseline_vitals(one, self.extra)
+        self.t, self.carry = start, 0.0
+        self.drugs = {}                       # name: DrugCourse
+        self.dose_x = {}                      # name: multiple of the usual dose
+
+    def course(self, name):
+        if name not in self.drugs:
+            self.drugs[name] = DrugCourse(name, self.pop, self.torch, self.t)
+        return self.drugs[name]
+
+    def give(self, name):
+        mg, kind, over = DRUGS[name]["give"]
+        mg *= self.dose_x.get(name, 1.0)
+        self.course(name).give(self.t, mg, kind, over)
+        return mg, kind
+
+    def set_regular(self, name, on):
+        c = self.course(name)
+        c.regular, c.next = bool(on), self.t
+
+    def stop_all(self):
+        for c in self.drugs.values():
+            c.regular = False
+            c.rate[:] = 0.0
+            c.infusions.clear()
+
+    def advance(self, hours, on_dose):
+        self.carry += hours
+        steps = int(self.carry / DT + 1e-9)
+        self.carry -= steps * DT
+        for _ in range(steps):
+            for name, c in self.drugs.items():
+                if c.regular and self.t >= c.next - 1e-9:
+                    mg, every, kind, over = DRUGS[name]["regular"]
+                    mg *= self.dose_x.get(name, 1.0)
+                    c.give(self.t, mg, kind, over)
+                    on_dose(name, mg, kind, every, over)
+                    c.next += every
+                c.step(self.t)
+            self.t += DT
+        return steps * DT
+
+    def why(self, name):
+        """this patient's clearance and half-life of a drug, and a healthy adult's"""
+        c = self.course(name)
+        cl = clearance(c.m)
+        vss = np.array([_vss({t: c.m["Kp"][t][i] for t in TISSUES}, {t: c.m["V"][t][i] for t in TISSUES},
+                             c.m["V"]["arterial"][i] + c.m["V"]["venous"][i], c.m["bp"]) for i in range(2)])
+        return cl, math.log(2) * vss / cl
+
+
+def tissue_scale(c, lo, tox):
+    """the organs' colour scale: plasma levels from a fifth of the range's low end to one and a half times the first
+    toxic level, times the drug's typical tissue:plasma ratio (digoxin's tissues hold many times its plasma level)"""
+    k = float(np.median([c.m["Kp"][t][0] for t in ORGAN_VIEW]))
     return lo / 5.0 * k, tox * 1.5 * k
+
+
+def slug(name):
+    return name.lower().replace(" ", "_")
 
 
 def bedside_run(ctx):
     import time
     import torch
     rng = np.random.default_rng(int(time.time() * 1000) % (2 ** 31))
-    drug_name = str(ctx.params.get("drug") or "Theophylline")
-    patient = str(ctx.params.get("bedside_patient") or "Elderly woman, 84")
+    focus = str(ctx.params.get("drug") or "Theophylline")
+    patient = str(ctx.params.get("bedside_patient") or "Elderly woman 84")
+    patient = patient if patient in PROFILES else "Elderly woman 84"
     minutes = float(ctx.params.get("bedside_minutes") or 20.0)
-    b = Bedside(drug_name, patient if patient in PRESETS else "Healthy man, 35", rng, torch)
-    speed = b.drug["bedside"]["speed"]
-    fps = 5.0
-    seen, state, sed_was, rhythm_was, alarms_was = set(), None, None, None, ()
-    cum = {"absorbed": 0.0, "liver": 0.0, "kidneys": 0.0}
+    b = Bedside(patient, rng, torch)
+    clocks = {"15 min per second": 0.25, "1 h per second": 1.0, "4 h per second": 4.0, "12 h per second": 12.0}
+    speed, fps = 1.0, 5.0
+    state, rhythm_was, sed_was, alarms_was, pain_was, nausea_was = {}, None, None, (), None, None
 
     def clock(h):
         mins = int(round(h * 60.0))
@@ -1164,236 +1269,183 @@ def bedside_run(ctx):
     def say(text):
         ctx.telemetry("events", {"text": "%s · %s" % (clock(b.t), text)})
 
+    def how(kind, over):
+        return "by mouth" if kind == "oral" else ("IV" if over < 0.2 else "IV over %g h" % over)
+
     def intro():
         one = b.one
-        sex = "woman" if one["female"][0] else "man"
-        cond = condition(one, 0)
-        say("%s: a %s of %d, %d kg, %d cm, %s, %s, GFR %d mL/min. %s: %s." % (
-            b.patient_name, sex, round(float(one["age"][0])), round(float(one["weight"][0])), round(float(one["height"][0])),
-            "smoker" if one["smoker"][0] else "non-smoker", cond, round(float(one["gfr"][0])), b.drug_name, b.drug["bedside"]["regimen"]))
-        say("Clearance %.1f L/h, half-life %.1f h (a healthy man of 35: %.1f L/h, %.1f h)." % (b.cl[0], b.half[0], b.cl[1], b.half[1]))
+        say("%s: a %s of %d, %d kg, %d cm, %s, %s, GFR %d mL/min%s." % (
+            b.patient_name, "woman" if one["female"][0] else "man", round(float(one["age"][0])), round(float(one["weight"][0])),
+            round(float(one["height"][0])), "smoker" if one["smoker"][0] else "non-smoker", condition(one, 0).replace("none", "no known disease"),
+            round(float(one["gfr"][0])), "".join(s for s in (
+                ", pain %g/10" % b.extra["pain"] if b.extra["pain"] else "", ", %.1f °C" % b.extra["temp"] if b.extra["temp"] > 37.5 else "",
+                ", narrowed airways (asthma)" if b.extra["airway"] >= 0.4 else "") if s)))
 
-    def on_dose(t, mg):
-        kind = "IV" if b.route.startswith("IV") else "by mouth"
-        if b.route.startswith("IV") and b.interval <= b.inf_h + 1e-9:
-            if t < 1e-6:
-                say("Infusion started: %g mg/h." % mg)
-            return
-        say("%s %g mg %s." % (b.drug_name, mg, kind))
+    def on_dose(name, mg, kind, every, over):
+        if kind == "iv" and over >= every - 1e-9:
+            return                                                           # (a continuous infusion)
+        say("%s %g mg %s (regular, every %g h)." % (name, mg, how(kind, over), every))
+
+    def handle(name, value):
+        nonlocal b, focus, speed, state, rhythm_was, sed_was, alarms_was, pain_was, nausea_was
+        name = str(name).strip().lower()
+        if name in ("patient", "start again", "restart") and (value in PROFILES or name != "patient"):
+            b = Bedside(value if value in PROFILES else b.patient_name, rng, torch, b.t)
+            state, rhythm_was, sed_was, alarms_was, pain_was, nausea_was = {}, None, None, (), None, None
+            ctx.telemetry("events", {"text": "─── new patient ───"})
+            intro()
+        elif name == "drug" and value in DRUGS:
+            focus = value
+        elif name == "give":
+            mg, kind = b.give(focus)
+            over = DRUGS[focus]["give"][2]
+            say("%s %g mg %s." % (focus, mg, how(kind, over)))
+        elif name == "regular":
+            b.set_regular(focus, bool(value))
+            mg, every, kind, over = DRUGS[focus]["regular"]
+            if value and kind == "iv" and over >= every:
+                say("%s infusion started: %g mg/h." % (focus, mg * b.dose_x.get(focus, 1.0) / every))
+            elif not value:
+                say("%s: regular doses stopped." % focus)
+        elif name == "dose":
+            b.dose_x[focus] = max(0.0, float(value))
+            say("%s dose set to %g%% of the usual." % (focus, round(100 * b.dose_x[focus])))
+        elif name in ("stop all", "stop all drugs", "stop_all"):
+            b.stop_all()
+            say("All drugs stopped.")
+        elif name == "clock":
+            speed = clocks.get(str(value), speed)
+        elif name in ("finish now", "finish", "stop"):
+            return True
+        return False
+
     intro()
-    t0, deadline = time.time(), time.time() + minutes * 60.0
-    lo, hi = next(iter(b.drug["range"].values()))
-    tox = b.drug["toxic"][0][0]
-    s_lo, s_hi = tissue_scale(b, lo, tox)
-    unit = b.drug["unit"]
-    fmt = "%.1f" if unit == "mg/L" else ("%.2f" if b.drug_name == "Digoxin" else "%.0f")
-    legend = [fmt % (s_lo * (s_hi / s_lo) ** (k / 4.0)) for k in range(5)]
-    tick = 0
-    while time.time() < deadline:
-        # the Bedside view's buttons
+    b.course(focus)
+    t0, deadline, tick, done = time.time(), time.time() + minutes * 60.0, 0, False
+    beat, last = 0.0, time.time()          # (heartbeats counted in real time at the live heart rate: the 3D view's heart and sound)
+    while time.time() < deadline and not done:
         try:
-            msgs = ctx.messages("bedside")
+            msgs = ctx.messages("control")
         except Exception:      # noqa: BLE001
             msgs = []
         for msg in msgs or []:
             d = msg.get("data") if isinstance(msg, dict) else None
-            if not isinstance(d, dict) or d.get("seq") in seen:
-                continue
-            seen.add(d.get("seq"))
-            if d.get("patient") or d.get("drug") or d.get("restart"):
-                drug_name = d.get("drug") or b.drug_name
-                patient = d.get("patient") or b.patient_name
-                if drug_name not in DRUGS or patient not in PRESETS:
-                    continue
-                keep_speed = d.get("drug") is None
-                b = Bedside(drug_name, patient, rng, torch, b.t)
-                speed = speed if keep_speed else b.drug["bedside"]["speed"]
-                lo, hi = next(iter(b.drug["range"].values()))
-                tox = b.drug["toxic"][0][0]
-                s_lo, s_hi = tissue_scale(b, lo, tox)
-                unit = b.drug["unit"]
-                fmt = "%.1f" if unit == "mg/L" else ("%.2f" if b.drug_name == "Digoxin" else "%.0f")
-                legend = [fmt % (s_lo * (s_hi / s_lo) ** (k / 4.0)) for k in range(5)]
-                state, sed_was, rhythm_was, alarms_was = None, None, None, ()
-                cum = {"absorbed": 0.0, "liver": 0.0, "kidneys": 0.0}
-                ctx.telemetry("events", {"text": "─── new patient ───"})
-                intro()
-            if d.get("give"):
-                bd = b.drug["bedside"]
-                mg = bd.get("extra", b.dose) * b.dose_x
-                b.give(mg, over_h=bd.get("extra_h"))
-                say("Extra dose: %s %g mg %s." % (b.drug_name, mg, "IV" if b.route.startswith("IV") else "by mouth"))
-            if "dose_x" in d:
-                b.dose_x = max(0.0, float(d["dose_x"]))
-                say("Dose set to %g%% of the usual (%s)." % (round(100 * b.dose_x), b.drug["bedside"]["regimen"]))
-            if "stop" in d:
-                b.stopped = bool(d["stop"])
-                if b.stopped:
-                    b.rate[:] = 0.0
-                    b.infusions.clear()
-                else:
-                    b.next_dose = b.t
-                say("Drug stopped." if b.stopped else "Drug restarted.")
-            if "speed" in d:
-                speed = max(0.05, min(48.0, float(d["speed"])))
-        if finish_asked(ctx):
-            break
-        hrs = b.advance(speed / fps, on_dose)
-        a_r, l_r, k_r = b.flows()
-        cum["absorbed"] += a_r * hrs
-        cum["liver"] += l_r * hrs
-        cum["kidneys"] += k_r * hrs
-        cp, cref = b.plasma()
-        ce = b.tissue("heart")[0] / b.m["Kp"]["heart"][0] if b.drug["effect_at"] == "heart" else cp
-        v = vitals(b.drug_name, float(cp), float(ce), b.base)
-        now = "in range" if lo <= cp <= hi else ("below range" if cp < lo else "above range")
-        for cut, what in b.drug["toxic"]:
-            if cp > cut:
-                now = what
+            if isinstance(d, dict) and "control" in d:
+                done = handle(d["control"], d.get("value")) or done
+        b.advance(speed / fps, on_dose)
+        C = {n: c.effect() for n, c in b.drugs.items()}
+        v = vitals(C, b.base, b.extra)
+        fc = b.course(focus)
+        fd = fc.d
+        lo, hi = next(iter(fd["range"].values()))
+        tox = fd["toxic"][0][0]
+        s_lo, s_hi = tissue_scale(fc, lo, tox)
+        unit = fd["unit"]
+        fmt = "%.1f" if unit == "mg/L" else ("%.2f" if hi < 10 else "%.0f")
+        cp, cref = (float(x) for x in fc.plasma())
+        cl, half = b.why(focus)
         h = b.t
-        item = {"t_h": round(h, 2), "day": clock(h),
-                "plasma": round(float(cp), 3), "ref_plasma": round(float(cref), 3), "state": now, "unit": unit,
-                "target": "%g-%g %s" % (lo, hi, unit), "drug": b.drug_name, "regimen": b.drug["bedside"]["regimen"] +
-                ("" if abs(b.dose_x - 1) < 1e-6 else " × %g" % round(b.dose_x, 2)) + (" (stopped)" if b.stopped else ""),
-                "who": b.patient_name, "hr": v["hr"], "rr": v["rr"], "glass": "#0a1626",
-                "why": "Clearance %.1f L/h · half-life %.1f h (healthy adult: %.1f h)" % (b.cl[0], b.half[0], b.half[1]),
-                "eliminated": "Absorbed %s mg · liver %s mg · kidneys %s mg" % tuple(
-                    ("%.2f" if b.dose < 1 else "%.0f") % cum[k] for k in ("absorbed", "liver", "kidneys"))}
+        now_s = time.time()
+        beat += (now_s - last) * v["hr"] / 60.0 * (1.0 - 0.5 * v["dropped"])
+        last = now_s
+        item = {"t_h": round(h, 2), "day": clock(h), "beat": round(beat, 3), "who": b.patient_name, "patient": b.patient_name, "drug": focus,
+                "dose": b.dose_x.get(focus, 1.0), "regular": fc.regular, "clock": next((k for k, x in clocks.items() if x == speed), ""), "unit": unit, "hr": v["hr"], "rr": v["rr"], "glass": "#0a1626",
+                "focus_txt": "%s: plasma %s %s (target %g-%g) · a healthy adult: %s %s" % (focus, fmt % cp, unit, lo, hi, fmt % cref, unit),
+                "why": "%s: clearance %.1f L/h, half-life %.1f h (healthy adult %.1f h)" % (focus, cl[0], half[0], half[1])}
+        # the drugs on board
+        lines = []
+        for name, c in b.drugs.items():
+            dl, dh = next(iter(c.d["range"].values()))
+            p = float(c.plasma()[0])
+            st = "in range" if dl <= p <= dh else ("low" if p < dl else "high")
+            for cut, what in c.d["toxic"]:
+                if p > cut:
+                    st = what
+            f2 = "%.1f" if c.d["unit"] == "mg/L" else ("%.2f" if dh < 10 else "%.0f")
+            if p > dl * 0.02 or c.regular or c.rate[0] > 0:
+                lines.append("%s %s %s · %s%s" % (name, f2 % p, c.d["unit"], st, " · regular" if c.regular else ""))
+            item["lvl_" + slug(name)] = round(100.0 * p / dh, 1)
+            was = state.get(name)
+            if was is not None and st != was:
+                say("%s %s %s: %s." % (name, f2 % p, c.d["unit"], st))
+            state[name] = st
+        for k in range(6):
+            item["d%d" % k] = lines[k] if k < len(lines) else ""
+        if not lines:
+            item["d0"] = "No drug given yet: choose one and press Give dose."
+        legend = [fmt % (s_lo * (s_hi / s_lo) ** (k / 4.0)) for k in range(5)]
         for k in range(5):
             item["leg%d" % k] = legend[k]
-        dose_rate = max(b.dose * b.dose_x, 1e-9) / b.interval
-        glow = {"gut": a_r / dose_rate, "liver": l_r / dose_rate, "kidney": k_r / dose_rate}
+        a_r, l_r, k_r = fc.flows()
+        mg, every = (fd["regular"][0], fd["regular"][1])
+        rate_ref = max(mg * b.dose_x.get(focus, 1.0), 1e-9) / every
+        glow = {"gut": a_r / rate_ref, "liver": l_r / rate_ref, "kidney": k_r / rate_ref}
         for t in ORGAN_VIEW:
-            ct = float(b.tissue(t)[0])
-            val = math.log(max(ct, s_lo * 1e-3) / s_lo) / math.log(s_hi / s_lo)
-            col = scale_rgb(val)
-            g = 0.12 + 0.88 * min(1.0, glow.get(t, 0.0))
+            ct = float(fc.tissue(t)[0])
+            col = scale_rgb(math.log(max(ct, s_lo * 1e-3) / s_lo) / math.log(s_hi / s_lo))
             item["c_" + t] = hexc(col)
-            item["g_" + t] = hexc(col, g if t in glow else 0.12)
-            item[t] = round(ct, 3)
+            item["g_" + t] = hexc(col, 0.12 + 0.88 * min(1.0, glow[t]) if t in glow else 0.12)
             item["t_" + t] = (fmt % ct) + " " + unit
-        pcol = scale_rgb(math.log(max(float(cp), lo * 1e-4) / (lo / 5.0)) / math.log(tox * 7.5 / lo))
+        pcol = scale_rgb(math.log(max(cp, lo * 1e-4) / (lo / 5.0)) / math.log(tox * 7.5 / lo))
         item["c_blood"], item["g_blood"] = hexc(pcol), hexc(pcol, 0.4)
-        item["plasma_txt"], item["ref_txt"] = (fmt % cp) + " " + unit, (fmt % cref) + " " + unit
+        item["cleared"] = "%s so far: absorbed %s mg · liver %s mg · kidneys %s mg" % (
+            (focus,) + tuple(("%.2f" if fd["give"][0] < 1 else "%.0f") % x for x in fc.cum))
         ctx.telemetry("patient", item)
-        ctx.telemetry("vitals", dict(v, plasma=item["plasma"], unit=unit, target=item["target"], state=now, drug=b.drug_name,
-                                     who=b.patient_name, regimen=item["regimen"], day=item["day"], speed=speed,
-                                     patients=list(PRESETS), drugs=list(DRUGS), dose_x=b.dose_x, stopped=b.stopped))
-        # the story: what changes
-        if now != state and state is not None:
-            say("Plasma %s %s: %s." % (fmt % cp, unit, now))
-        state = now
-        if v["sedation"] is not None and v["sedation"] != sed_was:
-            if sed_was is not None:
-                say("Sedation: Ramsay %d (%s)." % (v["sedation"], v["effect"]))
-            sed_was = v["sedation"]
+        vit = dict(v, bp="%d/%d" % (v["sys"], v["dia"]), alarm_txt=("⚠ " + " · ".join(v["alarms"])) if v["alarms"] else "",
+                   ramsay="Ramsay %d · %s" % (v["sedation"], v["sedation_txt"]))
+        ctx.telemetry("vitals", vit)
+        # the story
         if v["rhythm"] != rhythm_was:
             if rhythm_was is not None:
                 say("Rhythm: %s." % v["rhythm"])
             rhythm_was = v["rhythm"]
+        if v["sedation"] != sed_was:
+            if sed_was is not None:
+                say("Sedation: Ramsay %d (%s)." % (v["sedation"], v["sedation_txt"]))
+            sed_was = v["sedation"]
         if tuple(v["alarms"]) != alarms_was:
             new = [a for a in v["alarms"] if a not in alarms_was]
             if new:
                 say("ALARM: %s." % ", ".join(new))
             alarms_was = tuple(v["alarms"])
+        p_now = round(v["pain"])
+        if pain_was is not None and abs(p_now - pain_was) >= 2:
+            say("Pain %d/10." % p_now)
+            pain_was = p_now
+        elif pain_was is None:
+            pain_was = p_now
+        if v["nausea"] != nausea_was:
+            if nausea_was is not None:
+                say("Nausea: %s." % v["nausea"])
+            nausea_was = v["nausea"]
         tick += 1
         lag = t0 + tick / fps - time.time()
         if lag > 0:
             time.sleep(lag)
-        ctx.progress(min(99.0, 100.0 * (time.time() - t0) / (minutes * 60.0)), "%s · %s · %s %s" % (item["day"], b.patient_name, fmt % cp, unit))
-    return {"patient": b.patient_name, "drug": b.drug_name, "hours": round(b.t, 1)}
+        ctx.progress(min(99.0, 100.0 * (time.time() - t0) / (minutes * 60.0)), "%s · %s" % (item["day"], b.patient_name))
+    return {"patient": b.patient_name, "drugs": list(b.drugs), "hours": round(b.t, 1)}
 
 
-def finish_asked(ctx, ch="control"):
-    try:
-        for msg in ctx.messages(ch):
-            d = msg.get("data") if isinstance(msg, dict) else None
-            if isinstance(d, dict) and str(d.get("control", "")).lower() in ("finish now", "finish", "stop"):
-                return True
-    except Exception:      # noqa: BLE001
-        pass
-    return False
-
-
-# ── the 3D view's files ──────────────────────────────────────────────────────────────────────────────────────────
-def platform_glb():
-    """the round platform the patient stands on: dark glass, a glowing ring at its edge"""
-    tri, nrm = [], []
-    seg, R, r_in, h = 96, 0.55, 0.52, 0.04
-    for k in range(seg):
-        a, b = 2 * math.pi * k / seg, 2 * math.pi * (k + 1) / seg
-        ca, sa, cb, sb = math.cos(a), math.sin(a), math.cos(b), math.sin(b)
-        tri += [(0, 0, h), (r_in * ca, r_in * sa, h), (r_in * cb, r_in * sb, h)]
-        nrm += [(0, 0, 1)] * 3
-        tri += [(r_in * ca, r_in * sa, h), (R * ca, R * sa, h), (R * cb, R * sb, h), (r_in * ca, r_in * sa, h), (R * cb, R * sb, h), (r_in * cb, r_in * sb, h)]
-        nrm += [(0, 0, 1)] * 6
-        tri += [(R * ca, R * sa, 0), (R * cb, R * sb, 0), (R * cb, R * sb, h), (R * ca, R * sa, 0), (R * cb, R * sb, h), (R * ca, R * sa, h)]
-        nrm += [(ca, sa, 0)] * 6
-    return _glb_parts([("platform", np.array(tri), np.array(nrm), (0.05, 0.06, 0.08), 0.15, 0.6, 1.0, None)])
-
-
-def ring_glb():
-    tri, nrm = [], []
-    seg, R, w, h = 128, 0.555, 0.012, 0.042
-    for k in range(seg):
-        a, b = 2 * math.pi * k / seg, 2 * math.pi * (k + 1) / seg
-        p = [(R * math.cos(a), R * math.sin(a)), (R * math.cos(b), R * math.sin(b)), ((R - w) * math.cos(b), (R - w) * math.sin(b)), ((R - w) * math.cos(a), (R - w) * math.sin(a))]
-        tri += [(p[0][0], p[0][1], h), (p[1][0], p[1][1], h), (p[2][0], p[2][1], h), (p[0][0], p[0][1], h), (p[2][0], p[2][1], h), (p[3][0], p[3][1], h)]
-        nrm += [(0, 0, 1)] * 6
-    return _glb_parts([("ring", np.array(tri), np.array(nrm), (0.3, 0.6, 1.0), 0.3, 0.0, 1.0, (0.3, 0.6, 1.0))])
-
-
-def _glb_parts(items):
-    """a glTF binary of separate parts: [(name, triangle corners (n, 3), normals, colour, roughness, metalness,
-    opacity, emissive or None)]"""
-    blobs, views, accs, meshes, nodes, mats = [], [], [], [], [], []
-    off = 0
-
-    def blob(b, target):
-        nonlocal off
-        views.append({"buffer": 0, "byteOffset": off, "byteLength": len(b), "target": target})
-        blobs.append(b + b"\0" * (-len(b) % 4))
-        off += len(blobs[-1])
-        return len(views) - 1
-    for k, (name, p, n, col, rough, metal, op, emi) in enumerate(items):
-        p, n = p.astype(np.float32), n.astype(np.float32)
-        idx = np.arange(len(p), dtype=np.uint32)
-        a0 = len(accs)
-        accs.append({"bufferView": blob(p.tobytes(), 34962), "componentType": 5126, "count": len(p), "type": "VEC3", "min": p.min(0).tolist(), "max": p.max(0).tolist()})
-        accs.append({"bufferView": blob(n.tobytes(), 34962), "componentType": 5126, "count": len(n), "type": "VEC3"})
-        accs.append({"bufferView": blob(idx.tobytes(), 34963), "componentType": 5125, "count": len(idx), "type": "SCALAR"})
-        mt = {"name": name, "pbrMetallicRoughness": {"baseColorFactor": list(col) + [op], "roughnessFactor": rough, "metallicFactor": metal}}
-        if emi:
-            mt["emissiveFactor"] = list(emi)
-        mats.append(mt)
-        meshes.append({"name": name, "primitives": [{"attributes": {"POSITION": a0, "NORMAL": a0 + 1}, "indices": a0 + 2, "material": k}]})
-        nodes.append({"name": name, "mesh": k})
-    js = {"asset": {"version": "2.0"}, "scene": 0, "scenes": [{"nodes": list(range(len(nodes)))}], "nodes": nodes, "meshes": meshes,
-          "materials": mats, "bufferViews": views, "accessors": accs, "buffers": [{"byteLength": off}]}
-    j = json.dumps(js, separators=(",", ":")).encode()
-    j += b" " * (-len(j) % 4)
-    binc = b"".join(blobs)
-    return (struct.pack("<III", 0x46546C67, 2, 28 + len(j) + len(binc)) + struct.pack("<I", len(j)) + b"JSON" + j
-            + struct.pack("<I", len(binc)) + b"BIN\0" + binc)
-
-
+# ── the 3D view's files ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
-    """the 3D view's scene: the patient on the platform, each organ coloured by how much drug it holds (the legend's
-    scale), the gut, liver and kidneys glowing while they absorb or clear it, the heart beating and the lungs breathing
-    at the patient's live rates (from the channel patient)"""
-    beat = "max(0, sin(@t * 6.2832 * (@patient.hr or 72) / 60))"
+    """the 3D view's scene: the patient, each organ coloured by how much of the chosen drug it holds, the gut, liver
+    and kidneys glowing while they absorb or clear it, the heart beating (and heard) on each beat the model counts, the
+    lungs breathing at the live rate; the monitor, the drugs on board, the events, and the controls"""
+    beat = "@patient.beat"
     mats = {"skin": {"opacity": 0.12, "emissive": "@patient.glass"}}
     for t in ORGAN_VIEW:
         if t != "skin":
             mats[t] = {"color": "@patient.c_%s" % t, "emissive": "@patient.g_%s" % t}
     mats["arterial"] = {"color": "@patient.c_blood", "emissive": "@patient.g_blood"}
     mats["venous"] = {"color": "@patient.c_blood", "emissive": "@patient.g_blood"}
-    parts = {"heart": {"scale": {"expr": "1 + 0.08 * %s * %s" % (beat, beat)}},
+    pulse = "max(0, 1 - 6 * (%s - floor(%s)))" % (beat, beat)            # (a quick contraction at the start of each beat)
+    parts = {"heart": {"scale": {"expr": "1 + 0.09 * %s" % pulse}},
              "lung": {"scale": {"expr": "1 + 0.03 * sin(@t * 6.2832 * (@patient.rr or 14) / 60)"}}}
     organs = [{"type": "text", "text": "%s  {@patient.t_%s}" % (TISSUE_LABEL[t], t), "size": "small"}
               for t in ("brain", "heart", "lung", "liver", "gut", "kidney", "muscle", "adipose", "bone")]
     legend = [{"type": "text", "text": "■ {@patient.leg%d} {@patient.unit}%s" % (k, ("  hardly any", "", "", "", "  the most")[k]),
                "color": hexc(scale_rgb(k / 4.0)), "size": "small"} for k in range(5)]
+    tile = lambda label, value, unit="": {"label": label, "value": value, "unit": unit}      # noqa: E731
     z = look_z
     return {
         "format": "esasim.scene/2", "title": "Virtual patient", "units": "m", "up": "z",
@@ -1404,29 +1456,48 @@ def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
                    {"type": "spot", "intensity": 22, "color": "#ffffff", "at": [0.0, 2.0, z + 1.8], "aim": [0, 0, z], "angle": 26},
                    {"type": "spot", "intensity": 14, "color": "#5c8dff", "at": [0.0, -1.8, z + 1.4], "aim": [0, 0, z], "angle": 30},
                    {"type": "ambient", "intensity": 0.3, "color": "#9fb4ff"}],
-        "models": [{"id": "platform", "model": prefix + "platform.glb", "up": "z", "position": [0, 0, 0]},
-                   {"id": "ring", "model": prefix + "ring.glb", "up": "z", "position": [0, 0, 0],
-                    "materials": {"ring": {"emissive": "@patient.c_blood"}}},
-                   {"id": "patient", "model": prefix + "patient.glb", "up": "z", "position": [round(v, 4) for v in offset],
+        "models": [{"id": "patient", "model": prefix + "patient.glb", "up": "z", "position": [round(v, 4) for v in offset],
                     "materials": mats, "parts": parts}],
-        "sounds": [{"id": "heartbeat", "sound": prefix + "heartbeat.mp3", "volume": 0.5,
-                    "on": {"expr": "sin(@t * 6.2832 * (@patient.hr or 72) / 60) > 0.97"}}],
+        "sounds": [{"id": "heartbeat", "sound": prefix + "heartbeat.mp3", "volume": 0.8,
+                    "on": {"expr": "%s - floor(%s) < 0.5" % (beat, beat)}}],
         "cameras": [{"id": "front", "type": "orbit", "position": [0.55, 1.45, z + 0.35], "look_at": [0, 0, z]}], "start": "front",
+        "controls": [
+            {"type": "select", "name": "patient", "label": "Patient", "options": list(PROFILES)},
+            {"type": "select", "name": "drug", "label": "Drug", "options": list(DRUGS)},
+            {"type": "slider", "name": "dose", "label": "Dose ×", "min": 0.25, "max": 4, "value": 1, "step": 0.25},
+            {"type": "button", "label": "Give dose", "send": "give"},
+            {"type": "toggle", "name": "regular", "label": "Regular doses"},
+            {"type": "button", "label": "Stop all drugs", "send": "stop all"},
+            {"type": "select", "name": "clock", "label": "Clock",
+             "options": ["15 min per second", "1 h per second", "4 h per second", "12 h per second"], "value": "1 h per second"},
+            {"type": "button", "label": "Start again", "send": "start again"},
+            {"type": "button", "label": "Finish now", "send": "finish now"}],
         "overlay": [
             {"type": "panel", "at": "top-left", "title": "Virtual patient", "items": [
                 {"type": "text", "text": "@patient.who"},
-                {"type": "text", "text": "@patient.regimen", "color": "#9aa3b2"},
-                {"type": "text", "text": "@patient.why", "color": "#9aa3b2"},
-                {"type": "text", "text": "@patient.eliminated", "color": "#9aa3b2"}]},
-            {"type": "panel", "at": "bottom-left", "items": [
                 {"type": "text", "text": "@patient.day", "size": "large"},
-                {"type": "text", "text": "Plasma {@patient.plasma_txt} · {@patient.state}", "size": "normal"},
-                {"type": "text", "text": "Target {@patient.target} · a healthy adult now: {@patient.ref_txt}", "color": "#9aa3b2", "size": "small"},
-                {"type": "chart", "title": "Plasma", "value": "@patient.plasma", "seconds": 60, "width": 280, "height": 70}]},
-            {"type": "panel", "at": "right", "title": "Drug in each organ", "items": organs + [
-                {"type": "text", "text": "Colour: how much drug it holds", "color": "#9aa3b2", "size": "small"}] + legend + [
+                {"type": "text", "text": "Drugs on board", "color": "#9aa3b2", "size": "small"},
+                {"type": "text", "text": "@patient.d0", "size": "small"}, {"type": "text", "text": "@patient.d1", "size": "small"},
+                {"type": "text", "text": "@patient.d2", "size": "small"}, {"type": "text", "text": "@patient.d3", "size": "small"},
+                {"type": "text", "text": "@patient.d4", "size": "small"}, {"type": "text", "text": "@patient.d5", "size": "small"}]},
+            {"type": "panel", "at": "top-right", "title": "Monitor", "items": [
+                {"type": "text", "text": "@vitals.alarm_txt", "color": "#ff6b6b", "size": "normal"},
+                {"type": "tiles", "items": [tile("HR", "@vitals.hr", "bpm"), tile("BP", "@vitals.bp", "mmHg"), tile("SpO₂", "@vitals.spo2", "%"),
+                                            tile("Resp", "@vitals.rr", "/min")]},
+                {"type": "tiles", "items": [tile("Temp", "@vitals.temp", "°C"), tile("QTc", "@vitals.qtc", "ms"), tile("Pain", "@vitals.pain", "/10")]},
+                {"type": "text", "text": "Rhythm: {@vitals.rhythm}", "color": "#7dffb0", "size": "small"},
+                {"type": "text", "text": "{@vitals.ramsay}", "color": "#a5b4fc", "size": "small"},
+                {"type": "text", "text": "Nausea: {@vitals.nausea} · Airways: {@vitals.airway}", "color": "#c9d1dc", "size": "small"},
+                {"type": "text", "text": "Other effects: {@vitals.effects}", "color": "#c9d1dc", "size": "small"},
+                {"type": "chart", "title": "Heart rate", "value": "@vitals.hr", "seconds": 60, "width": 250, "height": 46},
+                {"type": "chart", "title": "SpO₂", "value": "@vitals.spo2", "seconds": 60, "width": 250, "height": 46},
+                {"type": "chart", "title": "Breathing rate", "value": "@vitals.rr", "seconds": 60, "width": 250, "height": 46}]},
+            {"type": "panel", "at": "left", "title": "Where the chosen drug is", "items": [
+                {"type": "text", "text": "@patient.focus_txt", "size": "small"},
+                {"type": "text", "text": "@patient.why", "color": "#9aa3b2", "size": "small"},
+                {"type": "text", "text": "@patient.cleared", "color": "#9aa3b2", "size": "small"}] + organs + legend + [
                 {"type": "text", "text": "Glow: the gut absorbing, the liver and kidneys clearing", "color": "#9aa3b2", "size": "small"}]},
-            {"type": "events", "at": "bottom-right", "count": 6}]}
+            {"type": "events", "at": "bottom-right", "count": 7}]}
 
 
 class _CaseFile:
