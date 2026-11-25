@@ -1,11 +1,11 @@
 // ── EsaSim block ──────────────────────────────────────────────────────
-// Anaesthetic trolley (ws-anaesthetic-trolley) · version 2 · view, JavaScript: function render(ctx)
-// The anaesthetist's controls as a trolley: pick a drug, set how much, choose a push or an infusion, administer; the airway and the oxygen; the job, the clock and the demo
+// Anaesthetic trolley (ws-anaesthetic-trolley) · version 3 · view, JavaScript: function render(ctx)
+// The anaesthetist's trolley: the briefing first (the job, what you have to achieve, do it yourself or be shown the sequence), then the drugs, the airway and the case
 // Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 // Saved: 2026-11-25
 //
 // Inputs   ctx.input("id") gives { files, stream }; ctx.rows("id"), ctx.json("id"), ctx.text("id")
-//   stream      Stream                    Live telemetry · The run's telemetry: the patient channel carries the doses, the infusions running and the advice
+//   stream      Stream                    Live telemetry · The run's telemetry: the patient channel carries the briefing, the doses, the infusions running and the advice
 // Settings ctx.params.key
 //   channel     text      Commands go on = "control"
 //   data_channel text      Patient channel = "patient"
@@ -13,10 +13,9 @@
 // EsaSim rewrites these lines from the block's definition each time it is saved: change the definition, not them.
 // ── end of EsaSim block header ────────────────────────────────────────
 
-// The anaesthetist's trolley: pick a drug, set how much, choose how it goes in, and administer it. Everything the
-// room can be told is here, in groups, instead of a row of controls under the 3D patient: the drugs, the airway and
-// the oxygen, and the case itself (the job, the patient, the clock, the demo). It reads the patient channel for the
-// doses this patient's weight comes to and for what is already running, and sends one command per action.
+// The anaesthetist's trolley. It opens with the briefing: who the patient is, what the job asks of you, and the two
+// ways to take it on — do it yourself, or be shown the sequence that does it. Once you choose, it becomes the place
+// the case is worked from: a drug, how much, a push or an infusion, administer; the airway and the oxygen; the case.
 function render(ctx) {
   var p = ctx.params || {};
   var CH = p.channel || 'control';
@@ -36,18 +35,47 @@ function render(ctx) {
   var CLOCKS = ['Real time', '1 min/s', '5 min/s', '15 min/s', '1 h/s'];
   var AIRWAYS = ['No support', 'Bag-mask', 'Intubated'];
 
-  var drug = 'Propofol', route = 'bolus', x = 1, V = null, busy = false;
+  var drug = 'Propofol', route = 'bolus', x = 1, V = null, busy = false, briefed = false, shownProtocol = false;
 
   ctx.el.innerHTML = '';
   var root = el('div', 'display:flex;flex-direction:column;gap:8px;width:100%;height:100%;padding:10px;box-sizing:border-box;' +
     'background:#070a11;color:#d8dee9;font:13px system-ui,sans-serif;overflow:auto');
   ctx.el.appendChild(root);
 
-  var hint = el('div', 'padding:7px 10px;border-radius:6px;background:#1b1706;border:1px solid #4a3c0c;color:#ffe08a;font-size:12.5px', root);
-  hint.textContent = 'Run the flow to open the room.';
+  // the briefing
+  var brief = el('div', 'background:#0c111c;border:1px solid #27406e;border-radius:8px;padding:12px', root);
+  el('div', 'font-weight:700;font-size:12px;letter-spacing:.04em;color:#9fb4ff;margin-bottom:6px', brief).textContent = 'THE JOB';
+  var bWho = el('div', 'font:700 15px system-ui,sans-serif;color:#eaf1ff;margin-bottom:2px', brief);
+  var bTitle = el('div', 'color:#c9d1dc;font-size:13px;margin-bottom:8px', brief);
+  var bText = el('div', 'color:#aab3c2;font-size:12.5px;line-height:1.5;margin-bottom:10px', brief);
+  var bTarget = el('div', 'color:#7dffb0;font-size:12.5px;font-weight:600;margin-bottom:6px', brief);
+  el('div', 'color:#9aa3b2;font-size:11.5px;letter-spacing:.03em;margin-bottom:4px', brief).textContent = 'YOU HAVE TO:';
+  var bSteps = el('ol', 'margin:0 0 12px 18px;padding:0;color:#c9d1dc;font-size:12.5px;line-height:1.6', brief);
+  var choose = el('div', 'display:flex;gap:8px', brief);
+  var goMine = btn(choose, 'I will do it', function () { setBriefed(true); },
+    'flex:1;padding:9px;background:#16643a;border-color:#1f8a50;color:#eaffee;font-weight:700');
+  var goShow = btn(choose, 'Show me the right sequence', function () { showProtocol(); }, 'flex:1;padding:9px');
 
-  // the drugs
-  var card = box(root, 'Give a drug');
+  var proto = el('div', 'margin-top:11px;display:none', brief);
+  el('div', 'color:#9aa3b2;font-size:11.5px;letter-spacing:.03em;margin-bottom:4px', proto).textContent =
+    'THE PROTOCOL, STEP BY STEP:';
+  var pList = el('ol', 'margin:0 0 10px 18px;padding:0;color:#d8dee9;font-size:12.5px;line-height:1.6', proto);
+  var pButtons = el('div', 'display:flex;gap:8px', proto);
+  btn(pButtons, 'Play it for me', function () { send({ control: 'demo', value: true }); setBriefed(true); },
+    'flex:1;padding:8px;background:#1d3a6b;border-color:#3b63ab;color:#eaf1ff;font-weight:700');
+  btn(pButtons, 'I will follow it myself', function () { setBriefed(true); }, 'flex:1;padding:8px');
+  el('div', 'color:#6b7280;font-size:11px;margin-top:8px', proto).textContent =
+    'Play it for me works the controls itself, a move at a time, and writes each one in the events log. ' +
+    'Press Demo again at any point to take over.';
+
+  // working
+  var work = el('div', 'display:none;flex-direction:column;gap:8px', root);
+  var topRow = el('div', 'display:flex;gap:8px;align-items:center', work);
+  var hint = el('div', 'flex:1;padding:7px 10px;border-radius:6px;background:#1b1706;border:1px solid #4a3c0c;' +
+    'color:#ffe08a;font-size:12.5px', topRow);
+  btn(topRow, 'The job', function () { setBriefed(false); }, 'align-self:stretch');
+
+  var card = box(work, 'Give a drug');
   var favs = el('div', 'display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px', card);
   var favB = {};
   FAVOURITES.forEach(function (n) { favB[n] = chip(favs, n, function () { pick(n); }); });
@@ -80,8 +108,7 @@ function render(ctx) {
   btn(card, 'Stop every infusion', function () { send({ control: 'stop infusions', value: true }); },
     'width:100%;margin-top:6px');
 
-  // the airway
-  var air = box(root, 'The airway and the oxygen');
+  var air = box(work, 'The airway and the oxygen');
   var preox = btn(air, 'Preoxygenate · fill the lungs with oxygen', function () {
     send({ control: 'preoxygenate', value: true });
   }, 'width:100%;margin-bottom:7px');
@@ -89,15 +116,14 @@ function render(ctx) {
   var airB = {};
   AIRWAYS.forEach(function (a) { airB[a] = tab(airRow, a, function () { send({ control: 'airway', value: a }); }); });
 
-  // the case
-  var job = box(root, 'The case');
+  var job = box(work, 'The case');
   var who = el('div', 'color:#c9d1dc;font-size:12.5px;margin-bottom:7px', job);
   var jobSel = line(job, 'Job', JOBS, function (v) { send({ control: 'scenario', value: v }); });
   var clockSel = line(job, 'Clock', CLOCKS, function (v) { send({ control: 'clock', value: v }); });
-  clockSel.value = '1 min/s';                  // (the speed the room starts at)
+  clockSel.value = '1 min/s';
   var bottom = el('div', 'display:flex;gap:6px;margin-top:8px', job);
-  btn(bottom, 'Demo: watch it played', function () { send({ control: 'demo', value: true }); }, 'flex:1');
-  btn(bottom, 'Start again', function () { send({ control: 'start again', value: true }); }, 'flex:1');
+  btn(bottom, 'Demo on or off', function () { send({ control: 'demo', value: true }); }, 'flex:1');
+  btn(bottom, 'Start again', function () { send({ control: 'start again', value: true }); briefed = false; layout(); }, 'flex:1');
   el('div', 'color:#6b7280;font-size:11px;margin-top:7px', job).textContent =
     'The patient is chosen on the block before the run.';
 
@@ -135,6 +161,27 @@ function render(ctx) {
     b.style.background = on ? '#24406e' : '#121a2b';
     b.style.borderColor = on ? '#4c7bd6' : '#2b3754';
     b.style.color = on ? '#eaf1ff' : '#c9d1dc';
+  }
+  function fill(list, items) {
+    list.innerHTML = '';
+    (items || []).forEach(function (t) { var li = document.createElement('li'); li.textContent = t; list.appendChild(li); });
+  }
+
+  function setBriefed(v) { briefed = v; if (!v) shownProtocol = false; layout(); }
+  function showProtocol() {
+    shownProtocol = true;
+    proto.style.display = '';
+    goShow.style.display = 'none';
+    goMine.style.display = 'none';
+  }
+  function layout() {
+    brief.style.display = briefed ? 'none' : '';
+    work.style.display = briefed ? 'flex' : 'none';
+    if (!briefed && !shownProtocol) {
+      proto.style.display = 'none';
+      goShow.style.display = '';
+      goMine.style.display = '';
+    }
   }
 
   function pick(n) { drug = n; if (sel.value !== n) sel.value = n; draw(); }
@@ -187,11 +234,31 @@ function render(ctx) {
     });
     if (!last) return;
     var first = !V;
-    V = Object.assign({}, V, last);          // (the doses come every few seconds; keep the last we saw)
+    var was = V && V.scenario;
+    V = Object.assign({}, V, last);
+    if (!first && V.scenario !== was) { briefed = false; shownProtocol = false; layout(); }   // a new job: brief it
+    if (first) {
+      briefed = V.phase !== 'Before we start';      // a case already under way is not briefed again
+      if (V.scenario && JOBS.indexOf(V.scenario) >= 0) jobSel.value = V.scenario;
+      if (V.drug) pick(V.drug);
+      layout();
+    }
+    bWho.textContent = V.who || '';
+    bTitle.textContent = V.scenario || '';
+    bText.textContent = V.brief || '';
+    bTarget.textContent = V.target ? 'Hold ' + V.target.replace(/^Target /, '') : '';
+    var steps = V.steps;
+    if (!steps) {
+      steps = [];
+      for (var i = 0; i < 8; i++) {
+        var s = V['s' + i];
+        if (s) steps.push(s.replace(/^[✓▶·]\s*/, ''));
+      }
+    }
+    fill(bSteps, steps);
+    fill(pList, V.protocol && V.protocol.length ? V.protocol : ['Reading the protocol from the room…']);
     hint.textContent = V.hint || '';
     who.textContent = [V.who, V.phase, V.day].filter(Boolean).join(' · ');
-    if (first && V.scenario && JOBS.indexOf(V.scenario) >= 0) jobSel.value = V.scenario;
-    if (first && V.drug) pick(V.drug);
     AIRWAYS.forEach(function (a) { mark(airB[a], a === V.airway); });
     mark(preox, false);
     var inf = V.inf || {};
@@ -203,6 +270,7 @@ function render(ctx) {
   }
 
   ctx.on('update', update);
+  layout();
   update();
   draw();
 }
