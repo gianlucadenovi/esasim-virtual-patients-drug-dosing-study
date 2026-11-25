@@ -1,5 +1,5 @@
 // ── EsaSim block ──────────────────────────────────────────────────────
-// Anaesthetic trolley (ws-anaesthetic-trolley) · version 5 · view, JavaScript: function render(ctx)
+// Anaesthetic trolley (ws-anaesthetic-trolley) · version 6 · view, JavaScript: function render(ctx)
 // The anaesthetist's trolley: the briefing first (the job, what you have to achieve, do it yourself or be shown the sequence), then the drugs, the airway and the case
 // Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 // Saved: 2026-11-25
@@ -77,6 +77,9 @@ function render(ctx) {
     'color:#ffe08a;font-size:12.5px', topRow);
   btn(topRow, 'The job', function () { setBriefed(false); }, 'align-self:stretch');
   var status = el('div', 'display:none;padding:6px 10px;border-radius:6px;font-size:12.5px', work);
+
+  var seq = box(work, 'The sequence');
+  var seqList = el('ol', 'margin:0 0 0 18px;padding:0;font-size:12.5px;line-height:1.65', seq);
 
   var card = box(work, 'Give a drug');
   var favs = el('div', 'display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px', card);
@@ -168,6 +171,26 @@ function render(ctx) {
   function fill(list, items) {
     list.innerHTML = '';
     (items || []).forEach(function (t) { var li = document.createElement('li'); li.textContent = t; list.appendChild(li); });
+  }
+  // the protocol, ticked off as the case reaches each step, with the time it happened
+  function fillSequence(list) {
+    var pr = (V && V.protocol) || [];
+    var at = (V && V.done_at) || {};
+    if (!pr.length) { fill(list, ['Reading the protocol from the room…']); return; }
+    list.innerHTML = '';
+    var marked = false;
+    pr.forEach(function (p) {
+      var text = typeof p === 'string' ? p : p.do;
+      var step = typeof p === 'string' ? null : p.step;
+      var when = step && at[step];
+      var now = !when && !marked && !!step;
+      if (now) marked = true;
+      var li = document.createElement('li');
+      li.textContent = (when ? '✓ ' : now ? '▶ ' : '') + text + (when ? '   ' + when : '');
+      li.style.color = when ? '#8ef0b5' : now ? '#ffe08a' : '#8b93a1';
+      if (now) li.style.fontWeight = '600';
+      list.appendChild(li);
+    });
   }
 
   function setBriefed(v) { briefed = v; if (!v) shownProtocol = false; layout(); }
@@ -306,7 +329,8 @@ function render(ctx) {
       }
     }
     fill(bSteps, steps);
-    fill(pList, V.protocol && V.protocol.length ? V.protocol : ['Reading the protocol from the room…']);
+    fillSequence(pList);
+    fillSequence(seqList);
     var b = V.banner || '';
     if (b && b !== lastBanner) { pend = null; ackText = b; ackAt = Date.now(); }   // the room has answered
     lastBanner = b;
