@@ -6,7 +6,7 @@
     "name": "4 · Anaesthesia room: induce, maintain, wake up (3D)",
     "description": "The same patient with a job to do and a score at the end: a four-hour operation, a day of intensive-care sedation with the wake-up test, or a therapeutic coma — depth of anaesthesia, train-of-four, the oxygen store and the circulation all answering to the drugs given.",
     "published_version": 2,
-    "updated": "2026-11-25 04:04:24",
+    "updated": "2026-11-25 04:15:36",
     "graph": {
         "nodes": [
             {
@@ -36,10 +36,22 @@
                 "title": "The patient, live"
             },
             {
+                "id": "trolley",
+                "type": "ws-anaesthetic-trolley",
+                "x": 100,
+                "y": -420,
+                "params": {
+                    "channel": "control",
+                    "data_channel": "patient",
+                    "to": ""
+                },
+                "title": "The trolley: give the drugs, the airway, the case"
+            },
+            {
                 "id": "view",
                 "type": "scene-3d",
                 "x": 100,
-                "y": -300,
+                "y": -200,
                 "params": {
                     "scene": "anaesthesia.scene.json",
                     "quality": "high",
@@ -47,13 +59,13 @@
                     "controls": "",
                     "control_channel": "control"
                 },
-                "title": "The patient (3D): the job, the drugs, the airway and the clock are here"
+                "title": "The patient (3D): the job, the steps and the score"
             },
             {
                 "id": "monitor",
                 "type": "ws-bedside-monitor",
                 "x": 100,
-                "y": -40,
+                "y": 20,
                 "params": {
                     "channel": "vitals"
                 },
@@ -63,7 +75,7 @@
                 "id": "depth",
                 "type": "chart",
                 "x": 100,
-                "y": 180,
+                "y": 240,
                 "params": {
                     "kind": "line",
                     "x": "t_h",
@@ -79,7 +91,7 @@
                 "id": "levels",
                 "type": "chart",
                 "x": 100,
-                "y": 400,
+                "y": 460,
                 "params": {
                     "kind": "line",
                     "x": "t_h",
@@ -102,6 +114,17 @@
                 "to": {
                     "node": "tel",
                     "port": "from"
+                }
+            },
+            {
+                "id": "tel.stream>trolley.stream",
+                "from": {
+                    "node": "tel",
+                    "port": "stream"
+                },
+                "to": {
+                    "node": "trolley",
+                    "port": "stream"
                 }
             },
             {
@@ -151,16 +174,16 @@
         ],
         "notes": [
             {
-                "id": "m946fa8fd",
+                "id": "m160c84c4",
                 "x": 0,
                 "y": -160,
                 "w": 220,
                 "h": 120,
-                "text": "The room runs the whole-body model of every drug you give, ten seconds of patient time at a step, and scores what you do. Everything is done from the 3D view's controls while it runs.",
+                "text": "Everything is done from the trolley: pick a drug, set how much, choose a push or an infusion, administer. Press Demo on it to watch a correct case played once.",
                 "color": "yellow",
                 "by": "Gianluca De Novi",
                 "by_id": 1,
-                "at": "2026-11-25 04:04:24"
+                "at": "2026-11-25 04:15:36"
             }
         ],
         "dash": {

@@ -1,0 +1,49 @@
+{
+    "id": "ws-anaesthetic-trolley",
+    "version": "1",
+    "name": "Anaesthetic trolley",
+    "category": "Visualizers",
+    "icon": "sliders",
+    "side": "frontend",
+    "customizable": true,
+    "summary": "The anaesthetist's controls as a trolley: pick a drug, set how much, choose a push or an infusion, administer; the airway and the oxygen; the job, the clock and the demo",
+    "help": "Everything the anaesthesia room can be told, grouped the way it is done rather than as a row of controls: a drug with the dose this patient's weight comes to, given as one push or as an infusion; preoxygenating and the airway; the job, the clock, the demo and starting again. It reads the run's patient channel for the doses, for what is already running and for the line of advice at the top, and sends one command for each action. Use it beside the 3D patient in the anaesthesia flow.",
+    "inputs": [
+        {
+            "id": "stream",
+            "label": "Live telemetry",
+            "type": "stream",
+            "help": "The run's telemetry: the patient channel carries the doses, the infusions running and the advice"
+        }
+    ],
+    "outputs": [],
+    "params": [
+        {
+            "key": "channel",
+            "label": "Commands go on",
+            "type": "text",
+            "default": "control"
+        },
+        {
+            "key": "data_channel",
+            "label": "Patient channel",
+            "type": "text",
+            "default": "patient"
+        },
+        {
+            "key": "to",
+            "label": "Only to the block",
+            "type": "text",
+            "default": "",
+            "help": "A block's id on the grid; empty = every running block"
+        }
+    ],
+    "view": {
+        "w": 6,
+        "h": 7,
+        "resize": "both"
+    },
+    "esasim": {
+        "version": 1
+    }
+}
