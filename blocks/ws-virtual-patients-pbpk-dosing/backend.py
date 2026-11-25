@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 52 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 53 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-25
@@ -1864,7 +1864,7 @@ def alarms_of(v, T):
         out.append("NOT BREATHING")
     return out
 
-# ── the scenarios ──────────────────────────────────────────────────────────────────────────────────────────────
+# ── the scenarios ────────────────────────────────────────────────────────────────────────────────────────────────
 # Each is a job with a target depth to hold, a few things that have to be done in the right order, and a score at the
 # end. "profile": how hard the surgeon is working, as fractions of the operation's length.
 AN_DT = 1.0 / 360.0                     # (h) the step the anaesthesia model takes: ten seconds
@@ -2483,6 +2483,8 @@ def an_scene_file(offset=(0.0, 0.0, 0.0), prefix=""):
              "items": [{"type": "text", "text": "@patient.focus_txt", "size": "small"},
                        {"type": "text", "text": "@patient.why", "color": "#9aa3b2", "size": "small"}] + organs},
             {"type": "events", "at": "bottom-right", "count": 5}]})
+
+
 # ── the 3D view's files ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 HEART_SOUND = "universfield-heartbeat-single-383748.mp3"     # (the project's assets: one heartbeat, one deep breath)
 BREATH_SOUND = "hasin2004-deep-breath-247459.mp3"
