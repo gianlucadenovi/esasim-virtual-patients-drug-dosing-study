@@ -6,7 +6,7 @@
     "name": "4 · Anaesthesia room: induce, maintain, wake up (3D)",
     "description": "The same patient with a job to do and a score at the end: a four-hour operation, a day of intensive-care sedation with the wake-up test, or a therapeutic coma — depth of anaesthesia, train-of-four, the oxygen store and the circulation all answering to the drugs given.",
     "published_version": 3,
-    "updated": "2026-11-25 05:10:11",
+    "updated": "2026-11-25 05:22:52",
     "graph": {
         "nodes": [
             {
@@ -45,7 +45,7 @@
                     "data_channel": "patient",
                     "to": ""
                 },
-                "title": "The trolley: give the drugs, the airway, the case"
+                "title": "The trolley: the job, the sequence, the drugs, the airway"
             },
             {
                 "id": "view",
@@ -59,7 +59,7 @@
                     "controls": "",
                     "control_channel": "control"
                 },
-                "title": "The patient (3D): the job, the steps and the score"
+                "title": "The patient (3D): where the drugs are, and the score"
             },
             {
                 "id": "monitor",
@@ -174,16 +174,16 @@
         ],
         "notes": [
             {
-                "id": "m160c84c4",
+                "id": "mbd655021",
                 "x": 0,
                 "y": -160,
                 "w": 220,
                 "h": 120,
-                "text": "Everything is done from the trolley: pick a drug, set how much, choose a push or an infusion, administer. Press Demo on it to watch a correct case played once.",
+                "text": "The trolley opens on the job: read it, then either take the case yourself or press Show me the right sequence. The sequence ticks off with the time each step was reached.",
                 "color": "yellow",
                 "by": "Gianluca De Novi",
                 "by_id": 1,
-                "at": "2026-11-25 04:15:36"
+                "at": "2026-11-25 05:22:52"
             }
         ],
         "dash": {
