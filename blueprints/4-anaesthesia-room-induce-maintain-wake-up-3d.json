@@ -6,7 +6,7 @@
     "name": "4 · Anaesthesia room: induce, maintain, wake up (3D)",
     "description": "The same patient with a job to do and a score at the end: a four-hour operation, a day of intensive-care sedation with the wake-up test, or a therapeutic coma — depth of anaesthesia, train-of-four, the oxygen store and the circulation all answering to the drugs given.",
     "published_version": 3,
-    "updated": "2026-11-25 04:20:55",
+    "updated": "2026-11-25 04:23:04",
     "graph": {
         "nodes": [
             {
@@ -189,32 +189,32 @@
         "dash": {
             "items": {
                 "trolley": {
-                    "x": 0,
+                    "x": 4,
                     "y": 0,
                     "w": 3,
                     "h": 16
                 },
                 "view": {
-                    "x": 3,
+                    "x": 0,
                     "y": 0,
-                    "w": 6,
+                    "w": 4,
                     "h": 21
                 },
                 "monitor": {
-                    "x": 0,
-                    "y": 21,
-                    "w": 6,
+                    "x": 7,
+                    "y": 0,
+                    "w": 5,
                     "h": 9
                 },
                 "depth": {
                     "x": 6,
-                    "y": 21,
+                    "y": 16,
                     "w": 6,
                     "h": 6
                 },
                 "levels": {
                     "x": 6,
-                    "y": 27,
+                    "y": 22,
                     "w": 6,
                     "h": 6
                 }
