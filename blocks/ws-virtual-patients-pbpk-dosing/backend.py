@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 66 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 67 · worker block, Python: def run(ctx)
 # A whole-body pharmacokinetic model of twenty drugs in virtual patients: trials, the best dose per population, a live bedside, and an anaesthesia room where a case is run and scored
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-25
@@ -2588,7 +2588,7 @@ def an_scene_file(offset=AN_OFFSET, prefix=""):
              "ribcage": {"scale": [{"expr": "1 + %g * %s" % (k, fill)} for k in (0.02, 0.03, 0.005)]}}
     organs = [{"type": "bar", "label": TISSUE_LABEL[t], "value": "@patient.p_%s" % t, "min": 0, "max": 1,
                "format": "%", "width": 180, "color": "#fa8040"}
-              for t in ("brain", "heart", "lung", "liver", "kidney", "muscle", "adipose")]
+              for t in ("brain", "heart", "lung", "liver", "gut", "kidney", "muscle", "adipose", "bone")]
     return _full_width({
         "format": "esasim.scene/2", "title": "Anaesthesia", "units": "m", "up": "z",
         "renderer": {"bloom": {"strength": 0.3, "radius": 0.4, "threshold": 0.8}},

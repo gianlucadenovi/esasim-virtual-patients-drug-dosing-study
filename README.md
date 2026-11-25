@@ -64,8 +64,8 @@ The same patient and the same engine, but with a job to do and a score at the en
 |---|---|
 | **The anaesthesia room** | The patient, the job and every drug given, simulated live and scored. Choose the **job** and the **patient** here, and how many real minutes the room stays open (30 by default). |
 | **The patient, live** | Sends the patient, the vitals and the events to the views. |
-| **The trolley** | Where the case is worked from: a drug, how much of it, a push or an infusion, and **Administer**; the airway and the oxygen; the job, the clock, the demo. |
-| **The patient (3D)** | The chosen drug's level in each organ, the heart beating and the chest breathing; the job, the steps to tick off, the score, and the line of advice. No controls of its own. |
+| **The trolley** | Where the case is worked from: the briefing and what you are asked to do, the sequence ticking off as you go, the drugs, the airway and the oxygen, the clock and the demo. |
+| **The patient (3D)** | The chosen drug's level in each organ, the heart beating and the chest breathing; who the patient is, the phase, the depth to hold, the score, and the line of advice. No controls of its own. |
 | **Anaesthetic monitor** | The same monitor, showing the depth (BIS) and the train-of-four in place of the pain score. |
 | **Depth and pressure** | The depth, the mean pressure, the saturation and the breathing rate over the patient's time. |
 | **Drug levels** | Each drug given, as a share of the top of its usual range, over the patient's time. |
@@ -111,17 +111,38 @@ Run flow 4 and open the **View**. The three jobs:
 | **Intensive care: sedation and the wake-up test** | A patient already on the ventilator. Settle them at light sedation, hold it for eight hours, then stop the sedation until they are rousable, and settle them again. | BIS 58–80 (Ramsay 3–4) |
 | **Therapeutic coma for status epilepticus** | Fits that will not stop. Put the brain into burst suppression, hold it for twenty-four hours, then bring the patient back up. Deep enough costs blood pressure: expect to need a pressor. | BIS 12–25 |
 
-**If you have never given an anaesthetic, press Demo first.** The room then plays a correct case by itself, a move at a time, narrating each one in the events log: preoxygenate, induce, relax, intubate, run the infusions through the operation, reverse, wake up, extubate. Watch it once, press **Demo** again to take the controls back, then **Start again** and do it yourself. The demo is not a recording — it reads the monitor and answers to the patient in front of it, the same as you do.
+### The briefing, and the two ways in
+
+The trolley opens on **the job** before anything else: who the patient is, what the operation or the admission is, the depth to hold, and the numbered list of what you have to achieve. Two buttons under it:
+
+- **I will do it** — the work area opens and the case is yours.
+- **Show me the right sequence** — the whole correct protocol for this job, written out move by move (*Preoxygenate. · Propofol 2 mg/kg, one push. · Remifentanil 1 microgram/kg, one push. · Wait until the patient is asleep (BIS under 60).* …). From there, **Play it for me** hands it to the demo, or **I will follow it myself** gives you the controls with the list in front of you.
+
+You can go back to the briefing at any time with **The job** at the top right of the trolley, and switch the demo on or off mid-case.
+
+**The demo is not a recording.** It reads the monitor and answers to the patient in front of it, the same as you do — it waits for the BIS to fall before it reaches for the tube, and for the twitch to go before it intubates. Watch it once, press **Demo** again to take the controls back, then **Start again** and do it yourself.
+
+### The sequence
+
+Under the briefing, **the sequence** is the same protocol as a live checklist, and it is where you follow your own progress:
+
+- **▶ in amber** — the move you are on.
+- **✓ in green, with the time it was reached** — done (*✓ Preoxygenate. T + 0:52*, *✓ Propofol 2 mg/kg, one push. T + 1:17*).
+- **grey** — still to come.
+
+The times are the patient's clock, not yours, so at 1 h/s a four-hour operation ticks past in about five minutes. The steps tick off because the patient actually got there — the BIS fell, the twitch went, the tube went in — not because a button was pressed, so following the list out of order still ticks the ones you achieve.
 
 ### The trolley
 
-Everything is done from the trolley beside the patient, not from the 3D view. It has three parts.
+Everything is done from the trolley beside the patient, not from the 3D view. Under the sequence it has three parts.
 
 **Give a drug.** The five drugs an ordinary anaesthetic needs are chips along the top — Propofol, Remifentanil, Rocuronium, Sugammadex, Phenylephrine — and the rest are in the list under *or any*, grouped by what they are for (asleep, pain and the knife, not moving, undo it, the circulation, afterwards). Choose **One push (IV)** or **Infusion**, set the amount with − and +, and press **Administer**. The amount is shown as the milligrams this patient's weight comes to, with the usual dose and the multiplier underneath, so *150 mg · the usual 150 mg × 1.00 · 75 kg* means a standard induction dose for this 75 kg man. For an infusion the figure is the rate; setting it to zero and administering stops that one, and **Stop every infusion** stops them all. What is running is listed under the button.
 
 **The airway and the oxygen.** **Preoxygenate** fills the lungs before you send the patient to sleep: about seven minutes of apnoea instead of ninety seconds. The three airway buttons show which one you are on. Intubating an awake patient fails; intubating a light or unrelaxed one succeeds badly, and the room says what was wrong. Extubating a patient who is still weak, asleep or barely breathing counts against you.
 
-**The case.** The patient, the phase and the clock; the **Job**; how fast the patient's time runs (real time up to an hour a second — the four-hour operation fits in about five minutes at 1 h/s); **Demo**; and **Start again**. The patient is chosen on the block before the run.
+**The case.** The patient, the phase and the clock; the **Job**; how fast the patient's time runs (real time up to an hour a second — the four-hour operation fits in about five minutes at 1 h/s); **Demo on or off**; and **Start again**. The patient is chosen on the block before the run.
+
+**Every press answers at once.** The room runs on a worker, so a drug takes a second or two to arrive. The moment you press, an amber strip appears above the cards saying what was sent, and the button flashes; when the room has it, the strip turns green with a ✓ and the banner crosses the 3D patient (*PROPOFOL 150 MG*). If nothing has come back after nine seconds the strip says so, rather than leaving you wondering whether the click landed.
 
 **What to do next.** The yellow line at the top of the trolley — the same one that sits over the 3D patient — reads the job, the phase and the monitor and says what is wanted now: to preoxygenate, to relax them before the tube, that they are too light for the knife, that the pressure is low and wants phenylephrine, that the operation is over and the infusions should go off, that the paralysis needs reversing before the tube comes out. It also warns when hours of propofol over 4 mg/kg/h start to risk propofol infusion syndrome.
 
@@ -138,7 +159,7 @@ Then the penalties: being awake and paralysed at the same time (up to 30), a sat
 
 ### A few things to try
 
-- **The whole operation, yourself.** Preoxygenate; administer Propofol and Remifentanil; wait for *the patient is asleep*; Rocuronium; Bag-mask while it works; at train-of-four 0, Intubated; both infusions at ×1; clock to 1 h/s for the four hours; stop the infusions; Sugammadex; wait for BIS 80 and the breathing to come back; No support. Played like that it scores about 80, and the demo manages 92 — the time lost is induction and emergence, which is where the marks are.
+- **The whole operation, yourself.** Follow the sequence straight down: preoxygenate; Propofol and Remifentanil; wait for *the patient is asleep*; Rocuronium; Bag-mask while it works; at train-of-four 0, Intubated; both infusions at ×1; clock to 1 h/s for the four hours; stop the infusions; Sugammadex; wait for BIS 80 and the breathing to come back; No support. Played like that it scores about 80, and the demo manages 92 — the time lost is induction and emergence, which is where the marks are.
 - **Intubate too early.** Give the rocuronium and go straight for the tube: the train-of-four is still 3, the patient coughs and bucks, and the room tells you which of the two things was missing.
 - **Skip the preoxygenation.** Induce and paralyse with the airway on *No support*: the saturation starts falling after about ninety seconds, against around seven minutes if you did preoxygenate. Either way, Bag-mask rescues it.
 - **Neostigmine against sugammadex.** Give rocuronium and try neostigmine three minutes later: nothing happens, because it cannot reverse a block that has not begun to lift. Ninety minutes later the twitch comes back. Sugammadex works at any depth within two minutes — and if you give neostigmine without atropine, watch the heart rate.
@@ -150,7 +171,7 @@ Then the penalties: being awake and paralysed at the same time (up to 30), a sat
 
 **The 3D patient**
 - **Organ colours**: how much of the chosen drug each organ holds, on a log scale from indigo (hardly any) through violet, magenta and orange to pale yellow (the most). The gut glows while it absorbs a dose, the liver and the kidneys while they clear the drug.
-- **Top left**: at the bedside, the patient, the day and time, and the drugs on board with their levels (*in range*, *low*, *high* or the toxic effect); in the anaesthesia room, the patient, the phase, the clock, the depth to hold, the steps (✓ done, ▶ the one you are on, · still to come), the score so far, and below it every drug on board with its level and infusion rate.
+- **Top left**: at the bedside, the patient, the day and time, and the drugs on board with their levels (*in range*, *low*, *high* or the toxic effect); in the anaesthesia room, the patient, the phase, the clock, the depth to hold, the score so far, and below it every drug on board with its level and infusion rate. The job and the steps are the trolley's, where they tick off with their times.
 - **Where the chosen drug is**: its levels against its target (at the bedside, against a healthy adult's, with this patient's clearance and half-life), the doses, and one bar per organ on the same scale as the colours, from 0% (hardly any) to 100% (the most).
 - **Top right, Side effects** (bedside): each side effect as it starts, top to bottom in the order they appear, with where in the body it acts, the drug causing it and since when (●); when it passes it stays a few hours with its start and end (○).
 - **Bottom right**: the events as they happen — doses, levels entering or leaving the range, side effects starting and passing, alarms; in the anaesthesia room, the patient going to sleep, the twitch going, the tube in, the surgeon starting and finishing, the patient moving, and the score at the end.
@@ -272,7 +293,7 @@ Its files are in the project's assets:
 |---|---|
 | `patient split.glb` | the 3D patient, one part per organ |
 | `patient.scene.json` | the bedside's scene: the colours, the heart and the breathing, the sounds, the controls, the panels |
-| `anaesthesia.scene.json` | the anaesthesia room's scene: the same body with the job, the steps and the score, and no controls of its own |
+| `anaesthesia.scene.json` | the anaesthesia room's scene: the same body with the patient, the depth to hold and the score, and no controls of its own — the job, the sequence and the drugs are the trolley's |
 | `patient-turn.js` | lets the mouse turn the patient instead of the camera |
 | `universfield-heartbeat-single-383748.mp3`, `hasin2004-deep-breath-247459.mp3` | the heartbeat and the breath |
 
@@ -302,6 +323,7 @@ To rebuild the model, run **Maintenance · Make the 3D models**, press **Downloa
 - Only intravenous anaesthesia is modelled: no volatile agents, no nitrous oxide, no ventilator settings. The airway is a choice of three, with no difficult-airway model, no laryngospasm and no aspiration. The blood pressure is a mean with a systolic and diastolic drawn around it: no cardiac-output model, no blood loss, no fluids, no transfusion, and the temperature does not fall. The patient cannot come to harm beyond what the score records: there is no cardiac arrest, and the saturation has a floor.
 - The 3D body is one scanned person, neck to pelvis: it does not change with the virtual patient, and the brain has no surface. The breathing moves the ribcage and the lungs only; the skin stays still.
 - The monitor's waveforms run in real time at the patient's current rates while the patient's clock runs faster.
+- The room runs on a worker, so each control takes a second or two to arrive; the trolley says *sent* the moment you press and ✓ when the room has it.
 
 <!-- esasim: files of the project -->
 
@@ -319,7 +341,7 @@ An [EsaSim](https://esacode.com/) project of the workspace Gianluca De Novi's wo
 
 ### Workspace blocks it uses
 
-- [Virtual patients (PBPK dosing)](blocks/ws-virtual-patients-pbpk-dosing) · version 66
+- [Virtual patients (PBPK dosing)](blocks/ws-virtual-patients-pbpk-dosing) · version 67
 - [Bedside monitor](blocks/ws-bedside-monitor) · version 3
 - [Anaesthetic trolley](blocks/ws-anaesthetic-trolley) · version 7
 - [Model files (preview and download)](blocks/ws-model-files-preview-and-download) · version 1
