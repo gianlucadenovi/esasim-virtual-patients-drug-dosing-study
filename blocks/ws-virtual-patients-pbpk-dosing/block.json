@@ -6,8 +6,8 @@
     "icon": "code",
     "side": "backend",
     "customizable": true,
-    "summary": "A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient",
-    "help": "Twelve drugs: theophylline, midazolam, digoxin, morphine, naloxone, flumazenil, propranolol, atropine, ondansetron, paracetamol, amlodipine, salbutamol. Run a virtual trial: a population on a regimen; who ends up in the target range, below it, above it, and who reaches toxic levels, overall and by group. Find the dose: for every population, the dose that puts the most patients in range while keeping toxic levels rare. Bedside (live): one patient (fourteen profiles) dosed from the 3D view's controls; any number of drugs at once, each with its own whole-body model, their effects combining on the vitals (antidotes reverse, beta-blockers blunt, side effects add up), the organs coloured by how much of the chosen drug they hold, a healthy adult on the same doses for comparison. Make the 3D models: the patient (from a labelled CT case, or a mockup) and the scene. Concentrations are in each drug's unit (mg/L for theophylline and paracetamol, ng/mL for the others).",
+    "summary": "A whole-body physiologically based pharmacokinetic model of twenty drugs in virtual patients: trials, the best dose per population, a live bedside where drugs are combined on one patient, and an anaes",
+    "help": "Twenty drugs. Twelve for dosing: theophylline, midazolam, digoxin, morphine, naloxone, flumazenil, propranolol, atropine, ondansetron, paracetamol, amlodipine, salbutamol. Eight more for anaesthesia: propofol, remifentanil, fentanyl, rocuronium, sugammadex, neostigmine, phenylephrine, ephedrine. Run a virtual trial: a population on a regimen; who ends up in the target range, below it, above it, and who reaches toxic levels, overall and by group. Find the dose: for every population, the dose that puts the most patients in range while keeping toxic levels rare. Bedside (live): one patient (fourteen profiles) dosed from the 3D view's controls; any number of drugs at once, each with its own whole-body model, their effects combining on the vitals (antidotes reverse, beta-blockers blunt, side effects add up), the organs coloured by how much of the chosen drug they hold, a healthy adult on the same doses for comparison. Anaesthesia (live): the same patient, but with a job to do — a four-hour operation, a day of intensive-care sedation with the wake-up test, or a therapeutic coma. Send them to sleep, relax them, take over the breathing, hold the depth while the surgeon works, then reverse it and wake them up; the room scores the time at the right depth, the blood pressure held, the oxygen and the steps done in order. Make the 3D models: the patient (from a labelled CT case, or a mockup) and the scene. Concentrations are in each drug's unit (mg/L for theophylline, paracetamol, propofol and rocuronium, ng/mL for the others).",
     "inputs": [
         {
             "id": "ct",
@@ -89,6 +89,7 @@
                 "Run a virtual trial",
                 "Find the dose",
                 "Bedside (live)",
+                "Anaesthesia (live)",
                 "Make the 3D models"
             ]
         },
@@ -264,6 +265,50 @@
             "max": 120
         },
         {
+            "key": "an_scenario",
+            "label": "Anaesthesia: the job",
+            "type": "select",
+            "default": "Operation: a four-hour laparotomy",
+            "options": [
+                "Operation: a four-hour laparotomy",
+                "Intensive care: sedation and the wake-up test",
+                "Therapeutic coma for status epilepticus"
+            ],
+            "help": "The 3D view's Job control changes it while it runs. The operation: asleep, relaxed, intubated, four hours held, reversed, awake, tube out. Intensive care: light sedation for eight hours, then the daily wake-up test. Therapeutic coma: burst suppression for twenty-four hours, then back up."
+        },
+        {
+            "key": "an_patient",
+            "label": "Anaesthesia: the patient",
+            "type": "select",
+            "default": "Healthy man 35",
+            "options": [
+                "Healthy man 35",
+                "Healthy woman 30",
+                "Athlete 24 (resting HR 50)",
+                "Smoker 45 (20 a day)",
+                "Obese woman 40 (BMI 38)",
+                "Asthma attack 28",
+                "After surgery 50 (pain 7/10)",
+                "Pneumonia with fever 64",
+                "Elderly woman 84",
+                "Frail man 91",
+                "Liver cirrhosis 58",
+                "Heart failure 72",
+                "Kidney failure 66 (GFR 20)",
+                "Random patient"
+            ],
+            "help": "The 3D view's Patient control changes it while it runs"
+        },
+        {
+            "key": "an_minutes",
+            "label": "Anaesthesia: minutes it stays open",
+            "type": "number",
+            "default": 30,
+            "min": 1,
+            "max": 180,
+            "help": "Real minutes. The room's Clock control runs the patient's time at up to an hour a second, so a four-hour case fits in a few minutes."
+        },
+        {
             "key": "ct_case",
             "label": "Make the 3D models: CT case",
             "type": "text",
@@ -304,6 +349,6 @@
         "requests"
     ],
     "esasim": {
-        "version": 53
+        "version": 54
     }
 }

@@ -1,14 +1,14 @@
 # Virtual patients (PBPK dosing)
 
-A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient
+A whole-body physiologically based pharmacokinetic model of twenty drugs in virtual patients: trials, the best dose per population, a live bedside where drugs are combined on one patient, and an anaes
 
-Twelve drugs: theophylline, midazolam, digoxin, morphine, naloxone, flumazenil, propranolol, atropine, ondansetron, paracetamol, amlodipine, salbutamol. Run a virtual trial: a population on a regimen; who ends up in the target range, below it, above it, and who reaches toxic levels, overall and by group. Find the dose: for every population, the dose that puts the most patients in range while keeping toxic levels rare. Bedside (live): one patient (fourteen profiles) dosed from the 3D view's controls; any number of drugs at once, each with its own whole-body model, their effects combining on the vitals (antidotes reverse, beta-blockers blunt, side effects add up), the organs coloured by how much of the chosen drug they hold, a healthy adult on the same doses for comparison. Make the 3D models: the patient (from a labelled CT case, or a mockup) and the scene. Concentrations are in each drug's unit (mg/L for theophylline and paracetamol, ng/mL for the others).
+Twenty drugs. Twelve for dosing: theophylline, midazolam, digoxin, morphine, naloxone, flumazenil, propranolol, atropine, ondansetron, paracetamol, amlodipine, salbutamol. Eight more for anaesthesia: propofol, remifentanil, fentanyl, rocuronium, sugammadex, neostigmine, phenylephrine, ephedrine. Run a virtual trial: a population on a regimen; who ends up in the target range, below it, above it, and who reaches toxic levels, overall and by group. Find the dose: for every population, the dose that puts the most patients in range while keeping toxic levels rare. Bedside (live): one patient (fourteen profiles) dosed from the 3D view's controls; any number of drugs at once, each with its own whole-body model, their effects combining on the vitals (antidotes reverse, beta-blockers blunt, side effects add up), the organs coloured by how much of the chosen drug they hold, a healthy adult on the same doses for comparison. Anaesthesia (live): the same patient, but with a job to do — a four-hour operation, a day of intensive-care sedation with the wake-up test, or a therapeutic coma. Send them to sleep, relax them, take over the breathing, hold the depth while the surgeon works, then reverse it and wake them up; the room scores the time at the right depth, the blood pressure held, the oxygen and the steps done in order. Make the 3D models: the patient (from a labelled CT case, or a mockup) and the scene. Concentrations are in each drug's unit (mg/L for theophylline, paracetamol, propofol and rocuronium, ng/mL for the others).
 
 An [EsaSim](https://esacode.com/) blueprint block: it runs on a worker, in Python (`backend.py`, `def run(ctx)`).
 
 | | |
 |---|---|
-| Block | `ws-virtual-patients-pbpk-dosing` · version 53 |
+| Block | `ws-virtual-patients-pbpk-dosing` · version 54 |
 | Workspace | Gianluca De Novi's workspace |
 | Author | Gianluca De Novi |
 | Runs on | Any worker, NVIDIA GPU |
@@ -51,6 +51,9 @@ An [EsaSim](https://esacode.com/) blueprint block: it runs on a worker, in Pytho
 | `max_toxic_pct` Find the dose: toxic levels at most (%) | number | `5` |  |
 | `bedside_patient` Bedside: first patient | select | `"Healthy man 35"` | The 3D view's Patient control changes it while it runs |
 | `bedside_minutes` Bedside: minutes it stays open | number | `20` |  |
+| `an_scenario` Anaesthesia: the job | select | `"Operation: a four-hour laparotomy"` | The 3D view's Job control changes it while it runs. The operation: asleep, relaxed, intubated, four hours held, reversed, awake, tube out. Intensive care: light sedation for eight hours, then the daily wake-up test. Therapeutic coma: burst suppression for twenty-four hours, then back up. |
+| `an_patient` Anaesthesia: the patient | select | `"Healthy man 35"` | The 3D view's Patient control changes it while it runs |
+| `an_minutes` Anaesthesia: minutes it stays open | number | `30` | Real minutes. The room's Clock control runs the patient's time at up to an hour a second, so a four-hour case fits in a few minutes. |
 | `ct_case` Make the 3D models: CT case | text | `""` | With nothing wired to CT case: a case of the TotalSegmentator dataset (such as s1400), read in place from Zenodo. Empty: the mockup body. |
 | `accelerator` Run on | select | `"auto"` |  |
 | `seed` Seed | number | `1` |  |

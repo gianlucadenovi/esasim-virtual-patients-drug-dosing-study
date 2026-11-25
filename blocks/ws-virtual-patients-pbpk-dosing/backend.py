@@ -1,6 +1,6 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 53 · worker block, Python: def run(ctx)
-# A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 54 · worker block, Python: def run(ctx)
+# A whole-body physiologically based pharmacokinetic model of twenty drugs in virtual patients: trials, the best dose per population, a live bedside where drugs are combined on one patient, and an anaes
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-25
 #
@@ -15,7 +15,7 @@
 #   models      Files (glb, json)         3D models · Make the 3D models: patient.glb and patient.scene.json, for the project's assets
 #   telemetry   Live telemetry            ctx.telemetry("channel", data) while it runs
 # Settings ctx.params["key"]
-#   mode        select    What to do = "Run a virtual trial" of Run a virtual trial | Find the dose | Bedside (live) | Make t…
+#   mode        select    What to do = "Run a virtual trial" of Run a virtual trial | Find the dose | Bedside (live) | Anaest…
 #   drug        select    Drug = "Theophylline" of Theophylline | Midazolam | Digoxin | Morphine | Naloxone | Flumazenil | Pr…
 #   population  select    Population = "Healthy adults" of Healthy adults | Smokers | Elderly (65+) | Liver cirrhosis | Heart…
 #   patients    number    Virtual patients = 2000
@@ -32,6 +32,9 @@
 #   max_toxic_pct number    Find the dose: toxic levels at most (%) = 5
 #   bedside_patient select    Bedside: first patient = "Healthy man 35" of Healthy man 35 | Healthy woman 30 | Athlete 24 (restin…
 #   bedside_minutes number    Bedside: minutes it stays open = 20
+#   an_scenario select    Anaesthesia: the job = "Operation: a four-hour laparotomy" of Operation: a four-hour laparotomy | I…
+#   an_patient  select    Anaesthesia: the patient = "Healthy man 35" of Healthy man 35 | Healthy woman 30 | Athlete 24 (rest…
+#   an_minutes  number    Anaesthesia: minutes it stays open = 30
 #   ct_case     text      Make the 3D models: CT case = ""
 #   accelerator select    Run on = "auto" of auto | NVIDIA GPU | CPU
 #   seed        number    Seed = 1
