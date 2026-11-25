@@ -1,6 +1,6 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 55 · worker block, Python: def run(ctx)
-# A whole-body physiologically based pharmacokinetic model of twenty drugs in virtual patients: trials, the best dose per population, a live bedside where drugs are combined on one patient, and an anaes
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 56 · worker block, Python: def run(ctx)
+# A whole-body pharmacokinetic model of twenty drugs in virtual patients: trials, the best dose per population, a live bedside, and an anaesthesia room where a case is run and scored
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-25
 #

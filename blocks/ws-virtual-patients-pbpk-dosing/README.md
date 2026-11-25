@@ -1,6 +1,6 @@
 # Virtual patients (PBPK dosing)
 
-A whole-body physiologically based pharmacokinetic model of twenty drugs in virtual patients: trials, the best dose per population, a live bedside where drugs are combined on one patient, and an anaes
+A whole-body pharmacokinetic model of twenty drugs in virtual patients: trials, the best dose per population, a live bedside, and an anaesthesia room where a case is run and scored
 
 Twenty drugs. Twelve for dosing: theophylline, midazolam, digoxin, morphine, naloxone, flumazenil, propranolol, atropine, ondansetron, paracetamol, amlodipine, salbutamol. Eight more for anaesthesia: propofol, remifentanil, fentanyl, rocuronium, sugammadex, neostigmine, phenylephrine, ephedrine. Run a virtual trial: a population on a regimen; who ends up in the target range, below it, above it, and who reaches toxic levels, overall and by group. Find the dose: for every population, the dose that puts the most patients in range while keeping toxic levels rare. Bedside (live): one patient (fourteen profiles) dosed from the 3D view's controls; any number of drugs at once, each with its own whole-body model, their effects combining on the vitals (antidotes reverse, beta-blockers blunt, side effects add up), the organs coloured by how much of the chosen drug they hold, a healthy adult on the same doses for comparison. Anaesthesia (live): the same patient, but with a job to do — a four-hour operation, a day of intensive-care sedation with the wake-up test, or a therapeutic coma. Send them to sleep, relax them, take over the breathing, hold the depth while the surgeon works, then reverse it and wake them up; the room scores the time at the right depth, the blood pressure held, the oxygen and the steps done in order. Make the 3D models: the patient (from a labelled CT case, or a mockup) and the scene. Concentrations are in each drug's unit (mg/L for theophylline, paracetamol, propofol and rocuronium, ng/mL for the others).
 
@@ -8,7 +8,7 @@ An [EsaSim](https://esacode.com/) blueprint block: it runs on a worker, in Pytho
 
 | | |
 |---|---|
-| Block | `ws-virtual-patients-pbpk-dosing` · version 55 |
+| Block | `ws-virtual-patients-pbpk-dosing` · version 56 |
 | Workspace | Gianluca De Novi's workspace |
 | Author | Gianluca De Novi |
 | Runs on | Any worker, NVIDIA GPU |
