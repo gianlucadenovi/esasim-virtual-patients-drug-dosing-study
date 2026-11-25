@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 48 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 49 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-25
@@ -1638,6 +1638,179 @@ def bedside_run(ctx):
     return {"patient": b.patient_name, "drugs": list(b.drugs), "hours": round(b.t, 1)}
 
 
+# ── the anaesthetist's simulator ──────────────────────────────────────────────────────────────────────────────
+# ── the anaesthetist's drugs ─────────────────────────────────────────────────────────────────────────────────────
+# Given intravenously, so their effect follows the plasma with an effect compartment ("ke0", per hour: propofol and
+# remifentanil equilibrate in a minute or two, rocuronium in about five). Typical adult values from their prescribing
+# information and the standard pharmacokinetic literature (Schnider and Eleveld for propofol, Minto for remifentanil).
+# "cl_blood_per_kg" (L/h/kg) is clearance by the blood's own esterases, not the liver: remifentanil is broken down
+# wherever blood goes, which is why it stops working within minutes however long it has run. Propofol's clearance is
+# about the liver's whole blood flow, so part of it is given as blood clearance too (its real clearance is partly
+# outside the liver, in the lungs and kidneys).
+# "bolus": (mg, over how many hours) one push from the control bar; "infusion": mg/h the slider's 1x gives;
+# "per_kg": both are per kg of the patient's weight.
+ANAES_DRUGS = {
+    "Propofol": {     # the hypnotic: asleep in a minute, awake again in minutes however long it has run
+        "logP": 3.79, "pKa": 11.0, "kind": "neutral", "fu": 0.015, "bp": 1.0, "F": 1.0,
+        "ka": {"Oral (immediate release)": 1.0},
+        "cl_per_kg": 1.10, "cl_blood_per_kg": 0.80, "cl_renal": 0.0, "vss_per_kg": 4.0,
+        "unit": "mg/L", "unit_k": 1.0, "factors": {"cirrhosis": 0.85, "chf": 0.75, "smoking": 1.0},
+        "range": {"Anaesthesia 2-6 mg/L": (2.0, 6.0)}, "toxic": [(8.0, "deep: hypotension, burst suppression")],
+        "dose_steps": (10.0, 400.0, 10.0), "ke0": 27.4, "ec50": 3.4,
+        "bolus": (2.0, 0.5 / 60), "infusion": 6.0, "per_kg": True, "mw": 178.27},
+    "Remifentanil": {   # the opioid for the operation: blunts the response to the knife, gone minutes after it stops
+        "logP": 1.0, "pKa": 7.07, "kind": "base", "fu": 0.30, "bp": 1.0, "F": 1.0,
+        "ka": {"Oral (immediate release)": 1.0},
+        "cl_per_kg": 0.0, "cl_blood_per_kg": 2.3, "cl_renal": 0.0, "vss_per_kg": 0.35,
+        "unit": "ng/mL", "unit_k": 1000.0, "factors": {"cirrhosis": 1.0, "chf": 0.85, "smoking": 1.0},
+        "range": {"Operating 4-12 ng/mL": (4.0, 12.0)}, "toxic": [(20.0, "chest rigidity, deep bradycardia")],
+        "dose_steps": (0.05, 2.0, 0.05), "ke0": 31.0, "ec50": 12.0,
+        "bolus": (0.001, 0.5 / 60), "infusion": 0.015, "per_kg": True, "mw": 376.4},
+    "Fentanyl": {     # the longer opioid: minutes to work, hours to go; for pain after the operation
+        "logP": 4.05, "pKa": 8.4, "kind": "base", "fu": 0.16, "bp": 1.0, "F": 1.0,
+        "ka": {"Oral (immediate release)": 1.0},
+        "cl_per_kg": 0.64, "cl_renal": 0.0, "vss_per_kg": 4.0,
+        "unit": "ng/mL", "unit_k": 1000.0, "factors": {"cirrhosis": 0.7, "chf": 0.8, "smoking": 1.0},
+        "range": {"Analgesia 1-3 ng/mL": (1.0, 3.0)}, "toxic": [(6.0, "breathing depressed after the operation")],
+        "dose_steps": (0.025, 0.5, 0.025), "ke0": 8.8, "ec50": 2.0,
+        "bolus": (0.0015, 0.5 / 60), "infusion": 0.0, "per_kg": True, "mw": 336.5},
+    "Rocuronium": {   # the muscle relaxant: nothing moves, including the breathing
+        "logP": -1.5, "pKa": 7.0, "kind": "neutral", "fu": 0.70, "bp": 1.0, "F": 1.0,
+        "ka": {"Oral (immediate release)": 1.0},
+        "cl_per_kg": 0.22, "cl_renal": 2.5, "vss_per_kg": 0.25,
+        "unit": "mg/L", "unit_k": 1.0, "factors": {"cirrhosis": 0.7, "chf": 0.8, "smoking": 1.0},
+        "range": {"Paralysis 0.3-2 mg/L": (0.3, 2.0)}, "toxic": [(4.0, "very deep block: slow to wear off")],
+        "dose_steps": (5.0, 100.0, 5.0), "ke0": 14.0, "ec50": 0.35,
+        "bolus": (0.6, 0.2 / 60), "infusion": 0.3, "per_kg": True, "mw": 609.7},
+    "Sugammadex": {   # wraps rocuronium up and takes it out of play: a deep block gone in two minutes
+        "logP": -3.0, "pKa": 3.0, "kind": "neutral", "fu": 1.0, "bp": 1.0, "F": 1.0,
+        "ka": {"Oral (immediate release)": 1.0},
+        "cl_per_kg": 0.0, "cl_renal": 7.0, "vss_per_kg": 0.18,
+        "unit": "mg/L", "unit_k": 1.0, "factors": {"cirrhosis": 1.0, "chf": 1.0, "smoking": 1.0},
+        "range": {"Reversal 20-200 mg/L": (20.0, 200.0)}, "toxic": [(600.0, "far more than is needed")],
+        "dose_steps": (50.0, 1200.0, 50.0), "ke0": 60.0,
+        "bolus": (2.0, 0.2 / 60), "infusion": 0.0, "per_kg": True, "mw": 2178.0},
+    "Neostigmine": {   # the old reversal: works on a block that is already wearing off, not on a deep one
+        "logP": -1.0, "pKa": 12.0, "kind": "neutral", "fu": 0.85, "bp": 1.0, "F": 1.0,
+        "ka": {"Oral (immediate release)": 1.0},
+        "cl_per_kg": 0.72, "cl_renal": 8.0, "vss_per_kg": 0.7,
+        "unit": "ng/mL", "unit_k": 1000.0, "factors": {"cirrhosis": 1.0, "chf": 0.9, "smoking": 1.0},
+        "range": {"Reversal 20-60 ng/mL": (20.0, 60.0)}, "toxic": [(120.0, "bradycardia, secretions")],
+        "dose_steps": (0.5, 5.0, 0.5), "ke0": 7.0, "ec50": 18.0,
+        "bolus": (0.04, 0.5 / 60), "infusion": 0.0, "per_kg": True, "mw": 334.4},
+    "Phenylephrine": {   # tightens the vessels: the blood pressure up, the heart a little slower
+        "logP": 0.3, "pKa": 9.8, "kind": "base", "fu": 0.60, "bp": 1.0, "F": 0.4,
+        "ka": {"Oral (immediate release)": 1.5},
+        "cl_per_kg": 1.00, "cl_renal": 0.0, "vss_per_kg": 0.34,
+        "unit": "ng/mL", "unit_k": 1000.0, "factors": {"cirrhosis": 0.8, "chf": 1.0, "smoking": 1.0},
+        "range": {"Pressor 2-10 ng/mL": (2.0, 10.0)}, "toxic": [(30.0, "hypertension, reflex bradycardia")],
+        "dose_steps": (0.05, 0.5, 0.05), "ke0": 30.0, "ec50": 3.0,
+        "bolus": (0.0013, 0.2 / 60), "infusion": 0.03, "per_kg": True, "mw": 167.2},
+    "Ephedrine": {   # the heart faster and the vessels tighter: for the pressure when the heart is slow as well
+        "logP": 1.13, "pKa": 9.6, "kind": "base", "fu": 0.75, "bp": 1.0, "F": 0.85,
+        "ka": {"Oral (immediate release)": 1.5},
+        "cl_per_kg": 0.50, "cl_renal": 10.0, "vss_per_kg": 2.5,
+        "unit": "ng/mL", "unit_k": 1000.0, "factors": {"cirrhosis": 0.9, "chf": 1.0, "smoking": 1.0},
+        "range": {"Pressor 30-120 ng/mL": (30.0, 120.0)}, "toxic": [(300.0, "tachycardia, hypertension")],
+        "dose_steps": (2.5, 30.0, 2.5), "ke0": 20.0, "ec50": 50.0,
+        "bolus": (0.08, 0.2 / 60), "infusion": 0.0, "per_kg": True, "mw": 165.2},
+}
+DRUGS.update(ANAES_DRUGS)
+for _d in ANAES_DRUGS.values():
+    _d["ka"].setdefault("Oral (sustained release)", _d["ka"]["Oral (immediate release)"])
+
+# Four of the bedside drugs are also used in theatre and in intensive care, where they are given by the kilogram and
+# run as infusions rather than prescribed by the dose. These are the doses the anaesthesia room uses for them.
+AN_ALSO = {"Midazolam": {"bolus": (0.05, 0.5 / 60), "infusion": 0.06, "per_kg": True},
+           "Morphine": {"bolus": (0.1, 1.0 / 60), "infusion": 0.03, "per_kg": True},
+           "Ondansetron": {"bolus": (4.0, 2.0 / 60), "infusion": 0.0},
+           "Atropine": {"bolus": (0.5, 0.5 / 60), "infusion": 0.0}}
+for _n, _extra in AN_ALSO.items():
+    DRUGS[_n].update(_extra)
+
+# ── what the anaesthetist sees: depth, paralysis, the airway and the circulation ─────────────────────────────────
+# Depth of anaesthesia as a bispectral-index-like number (BIS: 95 wide awake, 40-60 anaesthetised, under 20 burst
+# suppression). The hypnotic (propofol, midazolam) sets it; an opioid on its own barely touches it but makes the
+# hypnotic go much further, which is the central fact of a balanced anaesthetic: the two together do at a fraction of
+# each what neither does alone. The response to the surgeon (the heart and blood pressure rising, the patient moving)
+# is the other half: the opioid blunts it, and the hypnotic a little.
+# The shapes here follow the published response-surface models in spirit; the numbers are rounded typical ones.
+AN_C50 = {"Propofol": 3.4, "Midazolam": 400.0, "Remifentanil": 12.0}     # the level that alone gives half the effect
+OPIOID_EQ = {"Remifentanil": 1.0, "Fentanyl": 1.3, "Morphine": 0.02}     # as remifentanil, ng/mL
+ROC_MW, SUG_MW = 609.7, 2178.0
+
+
+def an_depth(C):
+    """(BIS without the surgeon's arousal, the hypnotic drive, the opioid drive as remifentanil ng/mL)"""
+    uh = C.get("Propofol", 0.0) / AN_C50["Propofol"] + C.get("Midazolam", 0.0) / AN_C50["Midazolam"]
+    opi = sum(k * C.get(n, 0.0) for n, k in OPIOID_EQ.items())
+    uo = opi / AN_C50["Remifentanil"]
+    drive = uh * (1.0 + 0.6 * uo / (1.0 + uo))            # the opioid makes the hypnotic go further
+    bis = 95.0 - 93.0 * drive ** 1.6 / (1.0 + drive ** 1.6) if drive > 0 else 95.0
+    return bis, uh, opi
+
+
+def an_vitals(C, b, st):
+    """the monitor: depth, train-of-four, oxygen, the circulation. C: the effect-site level of each drug;
+    b: this patient's resting values; st: the airway, the oxygen store and how hard the surgeon is working."""
+    bis0, uh, opi = an_depth(C)
+    uo = (opi / AN_C50["Remifentanil"]) / (1.0 + opi / AN_C50["Remifentanil"])
+    uhs = uh / (1.0 + uh)
+    # the surgeon's stimulus, and how much of it the anaesthetic blocks
+    a = opi / AN_C50["Remifentanil"] + 0.5 * uh
+    resp = max(0.0, min(1.0, st["stimulus"] - 1.5 * a / (1.0 + a)))
+    bis = min(98.0, bis0 + 14.0 * resp)
+    # paralysis: the twitch left, from the rocuronium the sugammadex has not taken away, helped by neostigmine
+    roc = max(0.0, st.get("roc_ce", 0.0))
+    neo = occ(C.get("Neostigmine", 0.0), 18.0)
+    rc = DRUGS["Rocuronium"]["ec50"]
+    light = max(0.0, 1.0 - roc / (3.0 * rc))                       # neostigmine only works on a block already lifting
+    roc_eff = roc / (1.0 + 3.0 * neo * light)
+    twitch = 1.0 / (1.0 + (roc_eff / rc) ** 4.5)
+    tof = 0 if twitch < 0.03 else 1 if twitch < 0.12 else 2 if twitch < 0.3 else 3 if twitch < 0.6 else 4
+    # breathing: the hypnotic and the opioid stop it, the relaxant stops it altogether
+    drive_dep = 1.6 * uh + 1.3 * (opi / AN_C50["Remifentanil"])
+    spont = math.exp(-drive_dep ** 2.2) * twitch ** 2
+    alv = 1.0 if st["airway"] in ("tube", "mask") else spont
+    rr = 0.0 if alv <= 0.02 else (12.0 if st["airway"] == "tube" else b["rr"] * (0.5 + 0.5 * alv))
+    o2 = st["o2"]
+    spo2 = 100.0 - 65.0 * max(0.0, (0.5 - o2) / 0.5) ** 1.3
+    # the circulation
+    phe = occ(C.get("Phenylephrine", 0.0), 3.0)
+    eph = occ(C.get("Ephedrine", 0.0), 50.0)
+    atr = occ(C.get("Atropine", 0.0), 3.0)
+    bb = occ(C.get("Propranolol", 0.0), 18.2)
+    map0 = (b["sys"] + 2 * b["dia"]) / 3.0
+    mean = map0 * (1.0 - 0.32 * uhs - 0.18 * uhs ** 3 - 0.10 * uo) + 38.0 * resp + 32.0 * phe + 18.0 * eph
+    # (the cubic term barely shows at surgical depth and bites at burst suppression, where a pressor is the answer)
+    mean -= 14.0 * max(0.0, (spo2 - 100.0) / -15.0) if spo2 < 85 else 0.0
+    hr = b["hr"] * (1.0 - 0.30 * uo) * (1.0 - 0.33 * bb) + 34.0 * resp + 35.0 * atr + 32.0 * eph \
+        - 16.0 * phe - 34.0 * neo * (1.0 - atr)
+    hr = max(28.0, min(180.0, hr))
+    mean = max(25.0, min(160.0, mean))
+    sys = mean + 0.42 * mean * 0.55
+    dia = mean - 0.29 * mean * 0.55
+    moving = resp > 0.35 and twitch > 0.25 and bis > 55
+    notes = []
+    if moving:
+        notes.append("moving")
+    if resp > 0.25:
+        notes.append("sweating, tearing")
+    if C.get("Remifentanil", 0.0) > 20.0 and twitch > 0.5:
+        notes.append("chest rigidity")
+    if neo > 0.3 and atr < 0.2:
+        notes.append("neostigmine with no atropine: the heart slows")
+    return {"bis": round(bis), "tof": tof, "tof_ratio": round(twitch, 3), "hr": round(hr), "map": round(mean),
+            "sys": round(sys), "dia": round(dia), "rr": round(rr), "spo2": round(spo2), "temp": b["temp"],
+            "response": round(resp, 3), "moving": moving, "spont": round(spont, 3), "alv": alv,
+            "uh": uh, "uo": uo, "opioid_eq": round(opi, 1), "notes": ", ".join(notes) or "none",
+            "ramsay": 1 if bis > 85 else 2 if bis > 75 else 3 if bis > 65 else 4 if bis > 55 else 5 if bis > 40 else 6}
+
+PHASE_NAMES = {"start": "Before we start", "induced": "Asleep", "surgery": "The operation", "emergence": "Waking up",
+               "recovery": "Recovery", "settle": "Settling", "hold": "Holding", "wake": "The wake-up test",
+               "resedate": "Settling again"}
+RAMSAY = ["awake, anxious", "awake, calm", "drowsy, responds to voice", "asleep, responds to a tap",
+          "responds only to pain", "unrousable"]
 # ── the 3D view's files ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 HEART_SOUND = "universfield-heartbeat-single-383748.mp3"     # (the project's assets: one heartbeat, one deep breath)
 BREATH_SOUND = "hasin2004-deep-breath-247459.mp3"
