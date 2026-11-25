@@ -1,5 +1,5 @@
 // ── EsaSim block ──────────────────────────────────────────────────────
-// Anaesthetic trolley (ws-anaesthetic-trolley) · version 1 · view, JavaScript: function render(ctx)
+// Anaesthetic trolley (ws-anaesthetic-trolley) · version 2 · view, JavaScript: function render(ctx)
 // The anaesthetist's controls as a trolley: pick a drug, set how much, choose a push or an infusion, administer; the airway and the oxygen; the job, the clock and the demo
 // Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 // Saved: 2026-11-25
@@ -91,8 +91,10 @@ function render(ctx) {
 
   // the case
   var job = box(root, 'The case');
+  var who = el('div', 'color:#c9d1dc;font-size:12.5px;margin-bottom:7px', job);
   var jobSel = line(job, 'Job', JOBS, function (v) { send({ control: 'scenario', value: v }); });
-  line(job, 'Clock', CLOCKS, function (v) { send({ control: 'clock', value: v }); });
+  var clockSel = line(job, 'Clock', CLOCKS, function (v) { send({ control: 'clock', value: v }); });
+  clockSel.value = '1 min/s';                  // (the speed the room starts at)
   var bottom = el('div', 'display:flex;gap:6px;margin-top:8px', job);
   btn(bottom, 'Demo: watch it played', function () { send({ control: 'demo', value: true }); }, 'flex:1');
   btn(bottom, 'Start again', function () { send({ control: 'start again', value: true }); }, 'flex:1');
@@ -187,6 +189,7 @@ function render(ctx) {
     var first = !V;
     V = Object.assign({}, V, last);          // (the doses come every few seconds; keep the last we saw)
     hint.textContent = V.hint || '';
+    who.textContent = [V.who, V.phase, V.day].filter(Boolean).join(' · ');
     if (first && V.scenario && JOBS.indexOf(V.scenario) >= 0) jobSel.value = V.scenario;
     if (first && V.drug) pick(V.drug);
     AIRWAYS.forEach(function (a) { mark(airB[a], a === V.airway); });
