@@ -7,6 +7,13 @@
     "datasets": [],
     "assets": [
         {
+            "path": "anaesthesia.scene.json",
+            "size": 8669,
+            "sha256": "a1131fa422a81e72778311b9ff0bdf4fadfd38878ccb03aabea23bc93939e1b2",
+            "zip": "assets/anaesthesia.scene.json",
+            "in": "repo"
+        },
+        {
             "path": "covers/fda-project-optimus-selecting-optimal-dose-oncology.webp",
             "size": 363968,
             "sha256": "0402896cd35c65adc87ffed0a327c21db8947f91a635d67e1fd1e981ecacff26",
@@ -56,5 +63,5 @@
             "in": "repo"
         }
     ],
-    "saved": "2026-11-24T23:52:55+00:00"
+    "saved": "2026-11-25T03:01:34+00:00"
 }
