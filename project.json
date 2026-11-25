@@ -33,7 +33,7 @@
             "name": "4 · Anaesthesia room: induce, maintain, wake up (3D)",
             "file": "blueprints/4-anaesthesia-room-induce-maintain-wake-up-3d.json",
             "published_version": 0,
-            "nodes": 0
+            "nodes": 6
         },
         {
             "name": "Maintenance · Make the 3D models",

@@ -6,10 +6,165 @@
     "name": "4 · Anaesthesia room: induce, maintain, wake up (3D)",
     "description": "The same patient with a job to do and a score at the end: a four-hour operation, a day of intensive-care sedation with the wake-up test, or a therapeutic coma — depth of anaesthesia, train-of-four, the oxygen store and the circulation all answering to the drugs given.",
     "published_version": 0,
-    "updated": "2026-11-25 03:01:23",
+    "updated": "2026-11-25 03:01:34",
     "graph": {
-        "nodes": [],
-        "edges": [],
-        "notes": []
+        "nodes": [
+            {
+                "id": "room",
+                "type": "ws-virtual-patients-pbpk-dosing",
+                "x": -680,
+                "y": -180,
+                "params": {
+                    "mode": "Anaesthesia (live)",
+                    "an_scenario": "Operation: a four-hour laparotomy",
+                    "an_patient": "Healthy man 35",
+                    "an_minutes": 30,
+                    "accelerator": "CPU"
+                },
+                "title": "The anaesthesia room"
+            },
+            {
+                "id": "tel",
+                "type": "telemetry",
+                "x": -320,
+                "y": -40,
+                "params": {
+                    "interval": 0.2,
+                    "channels": "patient,vitals,events",
+                    "keep": 3000
+                },
+                "title": "The patient, live"
+            },
+            {
+                "id": "view",
+                "type": "scene-3d",
+                "x": 100,
+                "y": -300,
+                "params": {
+                    "scene": "anaesthesia.scene.json",
+                    "quality": "high",
+                    "overlay": true,
+                    "controls": "",
+                    "control_channel": "control"
+                },
+                "title": "The patient (3D): the job, the drugs, the airway and the clock are here"
+            },
+            {
+                "id": "monitor",
+                "type": "ws-bedside-monitor",
+                "x": 100,
+                "y": -40,
+                "params": {
+                    "channel": "vitals"
+                },
+                "title": "Anaesthetic monitor: BIS and train-of-four as well"
+            },
+            {
+                "id": "depth",
+                "type": "chart",
+                "x": 100,
+                "y": 180,
+                "params": {
+                    "kind": "line",
+                    "x": "t_h",
+                    "y": "bis,map,spo2,rr",
+                    "channel": "vitals",
+                    "last": 900,
+                    "ymin": "0",
+                    "title": "Depth and the circulation: BIS (the target band is on the 3D view), mean pressure, saturation and the breathing rate, over the patient's time (h)"
+                },
+                "title": "Depth and pressure"
+            },
+            {
+                "id": "levels",
+                "type": "chart",
+                "x": 100,
+                "y": 400,
+                "params": {
+                    "kind": "line",
+                    "x": "t_h",
+                    "y": "lvl_propofol,lvl_remifentanil,lvl_fentanyl,lvl_rocuronium,lvl_sugammadex,lvl_neostigmine,lvl_phenylephrine,lvl_ephedrine,lvl_atropine,lvl_midazolam,lvl_morphine,lvl_ondansetron",
+                    "channel": "patient",
+                    "last": 900,
+                    "ymin": "0",
+                    "title": "Each drug given: effect-site level as % of the top of its usual range (100 = top), over the patient's time (h)"
+                },
+                "title": "Drug levels"
+            }
+        ],
+        "edges": [
+            {
+                "id": "room.telemetry>tel.from",
+                "from": {
+                    "node": "room",
+                    "port": "telemetry"
+                },
+                "to": {
+                    "node": "tel",
+                    "port": "from"
+                }
+            },
+            {
+                "id": "tel.stream>view.data",
+                "from": {
+                    "node": "tel",
+                    "port": "stream"
+                },
+                "to": {
+                    "node": "view",
+                    "port": "data"
+                }
+            },
+            {
+                "id": "tel.stream>monitor.stream",
+                "from": {
+                    "node": "tel",
+                    "port": "stream"
+                },
+                "to": {
+                    "node": "monitor",
+                    "port": "stream"
+                }
+            },
+            {
+                "id": "tel.stream>depth.data",
+                "from": {
+                    "node": "tel",
+                    "port": "stream"
+                },
+                "to": {
+                    "node": "depth",
+                    "port": "data"
+                }
+            },
+            {
+                "id": "tel.stream>levels.data",
+                "from": {
+                    "node": "tel",
+                    "port": "stream"
+                },
+                "to": {
+                    "node": "levels",
+                    "port": "data"
+                }
+            }
+        ],
+        "notes": [
+            {
+                "id": "m3876ed88",
+                "x": -700,
+                "y": -340,
+                "w": 220,
+                "h": 120,
+                "text": "The room runs the whole-body model of every drug you give, ten seconds of patient time at a step, and scores what you do. Everything is done from the 3D view's controls while it runs.",
+                "color": "yellow",
+                "by": "Gianluca De Novi",
+                "by_id": 1,
+                "at": "2026-11-25 03:01:34"
+            }
+        ],
+        "dash": {
+            "items": []
+        }
     }
 }
