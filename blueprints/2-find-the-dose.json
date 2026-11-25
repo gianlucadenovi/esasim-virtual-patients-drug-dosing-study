@@ -6,14 +6,14 @@
     "name": "2 · Find the dose",
     "description": "For every population, the dose that puts the most patients in the target range while keeping toxic peaks rare; every dose tried, as curves.",
     "published_version": 1,
-    "updated": "2026-11-24 20:28:30",
+    "updated": "2026-11-25 06:20:06",
     "graph": {
         "nodes": [
             {
                 "id": "dose",
                 "type": "ws-virtual-patients-pbpk-dosing",
                 "x": -500,
-                "y": 0,
+                "y": -124,
                 "params": {
                     "mode": "Find the dose",
                     "patients": 3000,
@@ -31,8 +31,8 @@
             {
                 "id": "tel_doses",
                 "type": "telemetry",
-                "x": -300,
-                "y": -240,
+                "x": -80,
+                "y": -220,
                 "params": {
                     "interval": 0.5,
                     "channels": "doses",
@@ -43,7 +43,7 @@
             {
                 "id": "tel_best",
                 "type": "telemetry",
-                "x": -300,
+                "x": -60,
                 "y": 240,
                 "params": {
                     "interval": 0.5,
@@ -55,16 +55,16 @@
             {
                 "id": "best_table",
                 "type": "table-view",
-                "x": -40,
-                "y": 380,
+                "x": 380,
+                "y": 340,
                 "params": [],
                 "title": "The dose for each population"
             },
             {
                 "id": "best_chart",
                 "type": "chart",
-                "x": 272,
-                "y": 80,
+                "x": 380,
+                "y": 120,
                 "params": {
                     "kind": "bars",
                     "x": "population",
@@ -78,7 +78,7 @@
             {
                 "id": "in_range",
                 "type": "chart",
-                "x": -40,
+                "x": 380,
                 "y": -320,
                 "params": {
                     "kind": "line",
@@ -94,8 +94,8 @@
             {
                 "id": "toxic",
                 "type": "chart",
-                "x": 272,
-                "y": -160,
+                "x": 380,
+                "y": -100,
                 "params": {
                     "kind": "line",
                     "x": "dose",
