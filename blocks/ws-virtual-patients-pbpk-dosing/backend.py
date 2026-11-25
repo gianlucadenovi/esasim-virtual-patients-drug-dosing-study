@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 49 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 50 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-25
@@ -1811,6 +1811,332 @@ PHASE_NAMES = {"start": "Before we start", "induced": "Asleep", "surgery": "The 
                "resedate": "Settling again"}
 RAMSAY = ["awake, anxious", "awake, calm", "drowsy, responds to voice", "asleep, responds to a tap",
           "responds only to pain", "unrousable"]
+
+
+def mg_text(name, mg):
+    return "%.0f micrograms" % (mg * 1000.0) if mg < 1.0 else "%.0f mg" % mg
+
+
+def rate_text(name, mg_h, w):
+    if name in ("Remifentanil", "Phenylephrine"):
+        return "%.2f micrograms/kg/min" % (mg_h * 1000.0 / 60.0 / w)
+    if name == "Propofol":
+        return "%.1f mg/kg/h" % (mg_h / w)
+    return "%.1f mg/h" % mg_h
+
+
+def level_text(name, c):
+    d = DRUGS[name]
+    return ("%.2f %s" if d["unit"] == "mg/L" else "%.1f %s") % (c, d["unit"])
+
+
+def dosing_text(name, T):
+    d, bits = DRUGS[name], []
+    if d.get("bolus"):
+        bits.append("Give: %s" % mg_text(name, T.amount(name, "bolus") * T.dose_x.get(name, 1.0)))
+    if d.get("infusion"):
+        bits.append("Infusion 1x: %s" % rate_text(name, T.amount(name, "infusion"), T.weight))
+    lo, hi = next(iter(d["range"].values()))
+    bits.append("aiming %g-%g %s" % (lo, hi, d["unit"]))
+    return " · ".join(bits)
+
+
+def rhythm_of(v):
+    return "Sinus tachycardia" if v["hr"] > 100 else "Sinus bradycardia" if v["hr"] < 55 else "Sinus rhythm"
+
+
+def alarms_of(v, T):
+    lo, hi = T.sc["band"]
+    out = []
+    if v["hr"] < 45:
+        out.append("HR LOW")
+    if v["hr"] > 110:
+        out.append("HR HIGH")
+    if v["map"] < max(55, 0.75 * T.base_map):
+        out.append("BP LOW")
+    if v["spo2"] < 92:
+        out.append("SpO2 LOW")
+    if v["bis"] > 65 and v["tof"] <= 1 and T.scored():
+        out.append("AWAKE AND PARALYSED")
+    if T.scored() and v["bis"] < lo - 10:
+        out.append("TOO DEEP")
+    if v["rr"] < 6 and T.airway == "none":
+        out.append("NOT BREATHING")
+    return out
+
+# ── the scenarios ──────────────────────────────────────────────────────────────────────────────────────────────
+# Each is a job with a target depth to hold, a few things that have to be done in the right order, and a score at the
+# end. "profile": how hard the surgeon is working, as fractions of the operation's length.
+AN_DT = 1.0 / 360.0                     # (h) the step the anaesthesia model takes: ten seconds
+AN_SCENARIOS = {
+    "Operation: a four-hour laparotomy": {
+        "kind": "theatre", "band": (40, 60), "hours": 4.0, "start_airway": "none",
+        "brief": "A four-hour open abdominal operation. Send the patient to sleep, take over the breathing, keep them "
+                 "there while the surgeon works, then wake them up and take the tube out.",
+        "profile": [(0.00, 0.03, 1.00), (0.03, 0.10, 0.75), (0.10, 0.28, 0.95), (0.28, 0.55, 0.70),
+                    (0.55, 0.62, 1.00), (0.62, 0.82, 0.70), (0.82, 0.94, 0.50), (0.94, 1.01, 0.30)],
+        "steps": ["Preoxygenate", "Asleep (BIS under 60)", "Paralysed (train-of-four 0-1)", "Intubated",
+                  "Through the operation", "Paralysis reversed (train-of-four ratio 0.9)", "Awake and breathing",
+                  "Tube out"],
+    },
+    "Intensive care: sedation and the wake-up test": {
+        "kind": "icu", "band": (58, 80), "hours": 8.0, "start_airway": "tube",
+        "brief": "A patient already on the ventilator. Settle them at light sedation (Ramsay 3-4), hold it for eight "
+                 "hours, then do the daily wake-up test: stop the sedation until they are rousable, and settle them "
+                 "again. Propofol lets go in minutes; midazolam, after hours of it, does not.",
+        "profile": [(0.0, 1.01, 0.25)],
+        "steps": ["Sedation started", "At the target depth", "Eight hours held", "Woken for the test (Ramsay 2)",
+                  "Sedation restarted", "Settled again"],
+    },
+    "Therapeutic coma for status epilepticus": {
+        "kind": "coma", "band": (12, 25), "hours": 24.0, "start_airway": "tube",
+        "brief": "Fits that will not stop. Put the brain deeply to sleep (burst suppression, BIS 12-25), hold it for "
+                 "twenty-four hours, then bring the patient back up. Deep enough costs blood pressure: expect to need "
+                 "a pressor.",
+        "profile": [(0.0, 1.01, 0.15)],
+        "steps": ["Sedation started", "Burst suppression reached", "Twenty-four hours held", "Weaned off", "Awake"],
+    },
+}
+# the things that cost marks beyond the time at depth: what went wrong, and what each mistake is worth
+PENALTY_FOR = {"unsafe": 10.0, "awake": 10.0, "too long to wake": 15.0, "poor intubating": 8.0}
+AN_PATIENT_DRUGS = ["Propofol", "Remifentanil", "Fentanyl", "Rocuronium", "Sugammadex", "Neostigmine",
+                    "Phenylephrine", "Ephedrine", "Atropine", "Midazolam", "Morphine", "Ondansetron"]
+AIRWAYS = {"No support": "none", "Bag-mask": "mask", "Intubated": "tube"}
+
+
+class Theatre:
+    """one patient through one scenario: the drugs given, the airway, the clock and the score"""
+
+    def __init__(self, scenario, patient_name, rng, torch):
+        self.scenario = scenario if scenario in AN_SCENARIOS else list(AN_SCENARIOS)[0]
+        self.sc = AN_SCENARIOS[self.scenario]
+        self.patient_name = patient_name if patient_name in PROFILES else "Healthy man 35"
+        one, self.extra = profile(self.patient_name, rng)
+        self.one, self.pop, self.torch = one, one, torch
+        self.weight = float(one["weight"][0])
+        self.base = baseline_vitals(one, self.extra)
+        self.base_map = (self.base["sys"] + 2.0 * self.base["dia"]) / 3.0
+        self.t, self.carry = 0.0, 0.0
+        self.drugs, self.inf, self.dose_x = {}, {}, {}
+        self.roc_ce = 0.0
+        self.airway = self.sc["start_airway"]
+        self.preox = self.airway == "tube"
+        self.o2 = 1.0 if self.airway == "tube" else 0.52
+        self.phase, self.phase_t, self.surg_t = "start", 0.0, 0.0
+        self.spike_until = -1.0
+        self.done = {}                        # the steps ticked off
+        self.notes = []                       # what went wrong, for the score
+        self.sa = dict(t=0.0, band=0.0, map_ok=0.0, hypox=0.0, severe=0.0, aware=0.0, deep=0.0, moves=0)
+        self.moved_at = -1.0
+        self.finished = False
+        self.v = None
+
+    # ── the drugs ──
+    def course(self, name):
+        if name not in self.drugs:
+            self.drugs[name] = DrugCourse(name, self.pop, self.torch, self.t, dt=AN_DT)
+        return self.drugs[name]
+
+    @staticmethod
+    def bolus_of(d):
+        """(mg or mg/kg, how long the injection takes) — from the anaesthesia dose, or the bedside one"""
+        if "bolus" in d:
+            return d["bolus"][0], d["bolus"][1]
+        if "give" in d:
+            return d["give"][0], d["give"][2]
+        return 0.0, 0.01
+
+    def amount(self, name, what):
+        d = DRUGS[name]
+        mg = self.bolus_of(d)[0] if what == "bolus" else d.get("infusion", 0.0)
+        return mg * (self.weight if d.get("per_kg") else 1.0)
+
+    def give(self, name):
+        mg = self.amount(name, "bolus") * self.dose_x.get(name, 1.0)
+        self.course(name).give(self.t, mg, "iv", self.bolus_of(DRUGS[name])[1])
+        return mg
+
+    def set_infusion(self, name, mult):
+        self.inf[name] = max(0.0, float(mult))
+        self.course(name).base_rate = self.amount(name, "infusion") * self.inf[name]
+
+    def stop_infusions(self):
+        for name in list(self.inf):
+            self.set_infusion(name, 0.0)
+
+    # ── the surgeon ──
+    def stimulus(self):
+        if self.t < self.spike_until:
+            return 1.2
+        if self.phase == "surgery":
+            f = self.surg_t / max(self.sc["hours"], 1e-6)
+            for a, b, lev in self.sc["profile"]:
+                if a <= f < b:
+                    return lev
+            return 0.3
+        if self.sc["kind"] in ("icu", "coma") and self.phase in ("hold", "resedate", "sedate"):
+            return self.sc["profile"][0][2]
+        return 0.02
+
+    def levels(self):
+        C = {n: c.effect() for n, c in self.drugs.items()}
+        C["Rocuronium"] = self.roc_ce
+        return C
+
+    def step(self, dt):
+        for name, c in self.drugs.items():
+            c.step(self.t)
+        cp_roc = float(self.drugs["Rocuronium"].plasma()[0]) if "Rocuronium" in self.drugs else 0.0
+        cp_sug = float(self.drugs["Sugammadex"].plasma()[0]) if "Sugammadex" in self.drugs else 0.0
+        free = max(0.0, cp_roc / ROC_MW - cp_sug / SUG_MW) * ROC_MW      # sugammadex wraps it up, one for one
+        self.roc_ce += (free - self.roc_ce) * (1.0 - math.exp(-DRUGS["Rocuronium"]["ke0"] * dt))
+        self.t += dt
+        self.phase_t += dt
+        if self.phase == "surgery":
+            self.surg_t += dt
+
+    def oxygen(self, alv, dt):
+        if alv >= 0.98 or (self.preox and alv > 0.25):
+            self.o2 += (1.0 - self.o2) * (1.0 - math.exp(-40.0 * dt))
+        else:
+            self.o2 = max(0.0, self.o2 - (1.0 - alv) * 6.0 * dt)
+            # (a fully preoxygenated adult has five or six minutes before the saturation starts to fall; one who was
+            #  breathing air has about a minute and a half, which is the whole reason for preoxygenating)
+
+    def advance(self, hours, on_event):
+        """run the model forward, and move the scenario on; returns the hours actually taken"""
+        self.carry += hours
+        steps = int(self.carry / AN_DT + 1e-9)
+        self.carry -= steps * AN_DT
+        for _ in range(steps):
+            self.step(AN_DT)
+            st = {"airway": self.airway, "o2": self.o2, "stimulus": self.stimulus(), "roc_ce": self.roc_ce}
+            v = an_vitals(self.levels(), self.base, st)
+            self.v = v
+            self.oxygen(v["alv"], AN_DT)
+            self.watch(v, AN_DT, on_event)
+        return steps * AN_DT
+
+    # ── the score ──
+    def scored(self):
+        return self.phase in ("surgery", "hold", "resedate")
+
+    def watch(self, v, dt, on_event):
+        lo, hi = self.sc["band"]
+        if self.scored():
+            s = self.sa
+            s["t"] += dt
+            s["band"] += dt if lo <= v["bis"] <= hi else 0.0
+            s["map_ok"] += dt if abs(v["map"] - self.base_map) <= 0.25 * self.base_map or 65 <= v["map"] <= 100 else 0.0
+            s["deep"] += dt if v["map"] < 55 else 0.0
+            if v["bis"] > 65 and v["tof"] <= 1:
+                s["aware"] += dt
+        if v["spo2"] < 90:
+            self.sa["hypox"] += dt
+        if v["spo2"] < 85:
+            self.sa["severe"] += dt
+        if v["moving"] and self.t - self.moved_at > 0.05:
+            self.moved_at = self.t
+            self.sa["moves"] += 1
+            on_event("The patient moves.")
+        self.phases(v, on_event)
+
+    def tick(self, step, on_event, text=None):
+        if step not in self.done:
+            self.done[step] = self.t
+            on_event(text or (step + "."))
+
+    def phases(self, v, on_event):
+        k, lo, hi = self.sc["kind"], self.sc["band"][0], self.sc["band"][1]
+        if k == "theatre":
+            if self.phase == "start":
+                if v["bis"] < 70:
+                    self.tick("Asleep (BIS under 60)", on_event, "The patient is asleep.")
+                    self.phase, self.phase_t = "induced", 0.0
+            elif self.phase == "induced":
+                if v["tof"] <= 1:
+                    self.tick("Paralysed (train-of-four 0-1)", on_event, "Fully relaxed: nothing twitches.")
+                if self.airway == "tube":
+                    self.phase, self.phase_t, self.surg_t = "surgery", 0.0, 0.0
+                    on_event("The surgeon starts.")
+            elif self.phase == "surgery":
+                if self.surg_t >= self.sc["hours"]:
+                    self.tick("Through the operation", on_event, "The surgeon has finished.")
+                    self.phase, self.phase_t = "emergence", 0.0
+            elif self.phase == "emergence":
+                if v["tof_ratio"] >= 0.9:
+                    self.tick("Paralysis reversed (train-of-four ratio 0.9)", on_event, "The paralysis has worn off.")
+                if v["bis"] >= 80 and v["rr"] >= 8:
+                    self.tick("Awake and breathing", on_event, "Awake, and breathing for themselves.")
+                if self.airway == "none":
+                    self.phase, self.phase_t = "recovery", 0.0
+            elif self.phase == "recovery" and self.phase_t > 0.08:
+                self.finish(on_event)
+        else:
+            if self.phase == "start":
+                if v["bis"] < 90:
+                    self.tick("Sedation started", on_event)
+                    self.phase, self.phase_t = "settle", 0.0
+            elif self.phase == "settle":
+                if lo <= v["bis"] <= hi:
+                    self.tick("Burst suppression reached" if k == "coma" else "At the target depth", on_event)
+                    self.phase, self.phase_t = "hold", 0.0
+            elif self.phase == "hold":
+                if self.phase_t >= self.sc["hours"]:
+                    self.tick("Twenty-four hours held" if k == "coma" else "Eight hours held", on_event)
+                    self.phase, self.phase_t = "wake", 0.0
+                    on_event("Time for the wake-up test: stop the sedation." if k == "icu"
+                             else "Twenty-four hours done: bring the patient back up.")
+            elif self.phase == "wake":
+                if not any(x > 0 for x in self.inf.values()):
+                    self.tick("Weaned off", on_event, "The sedation is off.")
+                if v["bis"] >= 80:
+                    self.tick("Woken for the test (Ramsay 2)" if k == "icu" else "Awake", on_event,
+                              "The patient is rousable.")
+                    if k == "coma":
+                        self.finish(on_event)
+                    else:
+                        self.phase, self.phase_t = "resedate", 0.0
+                        on_event("Now settle them again at the target.")
+                elif self.phase_t > (2.0 if k == "icu" else 8.0):
+                    self.notes.append("too long to wake: the test could not be done")
+                    on_event("Too slow to wake: the test is over. A drug that lets go faster was the one to use.")
+                    if k == "coma":
+                        self.finish(on_event)
+                    else:
+                        self.phase, self.phase_t = "resedate", 0.0
+            elif self.phase == "resedate":
+                if lo <= v["bis"] <= hi and any(x > 0 for x in self.inf.values()):
+                    self.tick("Sedation restarted", on_event)
+                if self.phase_t >= 2.0:
+                    self.tick("Settled again", on_event)
+                    self.finish(on_event)
+
+    def finish(self, on_event):
+        if not self.finished:
+            self.finished = True
+            on_event("Finished. " + self.report()["line"])
+
+    def report(self):
+        s, steps = self.sa, self.sc["steps"]
+        done = sum(1 for x in steps if x in self.done)
+        band = 40.0 * (s["band"] / s["t"] if s["t"] > 0 else 0.0)
+        haem = 20.0 * (s["map_ok"] / s["t"] if s["t"] > 0 else 0.0)
+        oxy = max(0.0, 15.0 - 2.5 * s["hypox"] * 60.0)
+        mile = 25.0 * done / len(steps)
+        pen = min(30.0, 8.0 * s["aware"] * 60.0) + min(20.0, 5.0 * s["severe"] * 60.0) + 4.0 * s["moves"] \
+            + min(12.0, 3.0 * s["deep"] * 60.0) + sum(PENALTY_FOR[w] for n in self.notes for w in PENALTY_FOR if w in n)
+        total = max(0.0, min(100.0, band + haem + oxy + mile - pen))
+        grade = "excellent" if total >= 85 else "good" if total >= 70 else "fair" if total >= 55 else "unsafe"
+        return {"total": round(total), "grade": grade, "depth": round(band), "haemo": round(haem),
+                "oxygen": round(oxy), "steps": round(mile), "penalty": round(pen), "done": done, "of": len(steps),
+                "in_band_pct": round(100.0 * s["band"] / s["t"]) if s["t"] > 0 else 0,
+                "map_pct": round(100.0 * s["map_ok"] / s["t"]) if s["t"] > 0 else 0,
+                "hypox_min": round(s["hypox"] * 60.0, 1), "aware_min": round(s["aware"] * 60.0, 1),
+                "moves": s["moves"], "notes": self.notes,
+                "line": "Score %d out of 100 (%s): %d%% of the time at the right depth, %d%% with the blood pressure "
+                        "held, %d of %d steps done." % (round(total), grade, round(100.0 * s["band"] / s["t"]) if s["t"] > 0 else 0,
+                                                        round(100.0 * s["map_ok"] / s["t"]) if s["t"] > 0 else 0, done, len(steps))}
 # ── the 3D view's files ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 HEART_SOUND = "universfield-heartbeat-single-383748.mp3"     # (the project's assets: one heartbeat, one deep breath)
 BREATH_SOUND = "hasin2004-deep-breath-247459.mp3"
