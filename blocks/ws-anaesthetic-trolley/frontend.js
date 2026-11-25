@@ -1,5 +1,5 @@
 // ── EsaSim block ──────────────────────────────────────────────────────
-// Anaesthetic trolley (ws-anaesthetic-trolley) · version 6 · view, JavaScript: function render(ctx)
+// Anaesthetic trolley (ws-anaesthetic-trolley) · version 7 · view, JavaScript: function render(ctx)
 // The anaesthetist's trolley: the briefing first (the job, what you have to achieve, do it yourself or be shown the sequence), then the drugs, the airway and the case
 // Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 // Saved: 2026-11-25
@@ -53,7 +53,9 @@ function render(ctx) {
   var bTarget = el('div', 'color:#7dffb0;font-size:12.5px;font-weight:600;margin-bottom:6px', brief);
   el('div', 'color:#9aa3b2;font-size:11.5px;letter-spacing:.03em;margin-bottom:4px', brief).textContent = 'YOU HAVE TO:';
   var bSteps = el('ol', 'margin:0 0 12px 18px;padding:0;color:#c9d1dc;font-size:12.5px;line-height:1.6', brief);
-  var choose = el('div', 'display:flex;gap:8px', brief);
+  var waiting = el('div', 'color:#9aa3b2;font-size:12.5px', brief);
+  waiting.textContent = 'Waiting for the room to open… (press Run on the flow if it is not going)';
+  var choose = el('div', 'display:flex;gap:8px;display:none', brief);
   var goMine = btn(choose, 'I will do it', function () { setBriefed(true); },
     'flex:1;padding:9px;background:#16643a;border-color:#1f8a50;color:#eaffee;font-weight:700');
   var goShow = btn(choose, 'Show me the right sequence', function () { showProtocol(); }, 'flex:1;padding:9px');
@@ -207,6 +209,7 @@ function render(ctx) {
       proto.style.display = 'none';
       goShow.style.display = '';
       goMine.style.display = '';
+      if (V) choose.style.display = 'flex';
     }
   }
 
@@ -316,6 +319,8 @@ function render(ctx) {
       if (V.drug) pick(V.drug);
       layout();
     }
+    waiting.style.display = 'none';
+    choose.style.display = shownProtocol ? 'none' : 'flex';
     bWho.textContent = V.who || '';
     bTitle.textContent = V.scenario || '';
     bText.textContent = V.brief || '';

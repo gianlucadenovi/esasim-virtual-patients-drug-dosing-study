@@ -321,7 +321,7 @@ An [EsaSim](https://esacode.com/) project of the workspace Gianluca De Novi's wo
 
 - [Virtual patients (PBPK dosing)](blocks/ws-virtual-patients-pbpk-dosing) · version 64
 - [Bedside monitor](blocks/ws-bedside-monitor) · version 3
-- [Anaesthetic trolley](blocks/ws-anaesthetic-trolley) · version 6
+- [Anaesthetic trolley](blocks/ws-anaesthetic-trolley) · version 7
 - [Model files (preview and download)](blocks/ws-model-files-preview-and-download) · version 1
 
 ### Assets
