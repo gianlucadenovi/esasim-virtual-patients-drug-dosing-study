@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 62 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 63 · worker block, Python: def run(ctx)
 # A whole-body pharmacokinetic model of twenty drugs in virtual patients: trials, the best dose per population, a live bedside, and an anaesthesia room where a case is run and scored
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-25
@@ -1900,6 +1900,40 @@ AN_SCENARIOS = {
         "steps": ["Sedation started", "Burst suppression reached", "Twenty-four hours held", "Weaned off", "Awake"],
     },
 }
+# the right protocol for each job, written as the actions the trolley offers: what "show me the right sequence"
+# puts in front of someone who has never given an anaesthetic, and what the Demo does for them if they ask
+AN_PROTOCOL = {
+    "theatre": [
+        "Preoxygenate.",
+        "Propofol 2 mg/kg, one push.",
+        "Remifentanil 1 microgram/kg, one push.",
+        "Wait until the patient is asleep (BIS under 60).",
+        "Rocuronium 0.6 mg/kg, one push: this stops the breathing too.",
+        "Airway: Bag-mask, and breathe for them while the relaxant works.",
+        "Wait for train-of-four 0, then Airway: Intubated.",
+        "Propofol infusion x1 and Remifentanil infusion x1.",
+        "Clock 1 h/s, and hold BIS 40-60 for the four hours. A push of Phenylephrine if the mean pressure "
+        "falls under 65.",
+        "When the surgeon has finished: Stop every infusion, and Clock back to 1 min/s.",
+        "Sugammadex 2 mg/kg, one push: the paralysis goes in two minutes.",
+        "Wait for BIS over 80 and the breathing back, then Airway: No support.",
+    ],
+    "icu": [
+        "Propofol infusion x0.65.",
+        "Clock 1 h/s, and move the infusion up or down until BIS sits at 58-80.",
+        "Hold it there for eight hours.",
+        "Stop every infusion, and wait until they are rousable (BIS over 80): about half an hour on propofol.",
+        "Propofol infusion x0.35 again, and settle them back in the band for two hours.",
+        "Try the same case on Midazolam to see why the choice of drug matters.",
+    ],
+    "coma": [
+        "Propofol infusion x1.2.",
+        "Clock 1 h/s, and raise the infusion until BIS sits at 12-25 (burst suppression).",
+        "When the mean pressure falls under 70, Phenylephrine infusion x0.5.",
+        "Hold it there for twenty-four hours.",
+        "Stop every infusion and wait: after a day of propofol they take hours to come back.",
+    ],
+}
 # the things that cost marks beyond the time at depth: what went wrong, and what each mistake is worth
 PENALTY_FOR = {"unsafe": 10.0, "awake": 10.0, "too long to wake": 15.0, "poor intubating": 8.0}
 AN_PATIENT_DRUGS = ["Propofol", "Remifentanil", "Fentanyl", "Rocuronium", "Sugammadex", "Neostigmine",
@@ -2490,6 +2524,8 @@ def anaesthesia_run(ctx):
         item["inf"] = {n: round(x, 2) for n, x in T.inf.items() if x > 0}        # (what is running, for the trolley)
         if tick % 25 == 0:                                        # (every five seconds: the trolley keeps the last)
             item["weight"] = round(T.weight, 1)
+            item["protocol"] = AN_PROTOCOL.get(T.sc["kind"], [])
+            item["steps"] = list(T.sc["steps"])
             item["doses"] = {n: {"bolus": mg_text(n, T.amount(n, "bolus")),
                                  "rate": rate_text(n, T.amount(n, "infusion"), T.weight) if DRUGS[n].get("infusion") else "",
                                  "now": round(T.inf.get(n, 0.0), 2)} for n in AN_PATIENT_DRUGS}
