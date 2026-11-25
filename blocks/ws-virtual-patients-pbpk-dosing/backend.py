@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 50 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 51 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-25
@@ -2137,6 +2137,281 @@ class Theatre:
                 "line": "Score %d out of 100 (%s): %d%% of the time at the right depth, %d%% with the blood pressure "
                         "held, %d of %d steps done." % (round(total), grade, round(100.0 * s["band"] / s["t"]) if s["t"] > 0 else 0,
                                                         round(100.0 * s["map_ok"] / s["t"]) if s["t"] > 0 else 0, done, len(steps))}
+
+def an_hint(T, v):
+    """the line across the top: what this scenario wants next"""
+    if T.finished:
+        return "Finished. Press Start again for another go, or change the scenario or the patient."
+    k, lo, hi = T.sc["kind"], T.sc["band"][0], T.sc["band"][1]
+    if v["spo2"] < 92:
+        return "The oxygen is falling: ventilate (Airway: Bag-mask, or Intubated if they are relaxed enough)."
+    if v["map"] < 0.8 * T.base_map:
+        return "The blood pressure is low: a push of Phenylephrine (or Ephedrine if the heart is slow too), and less hypnotic."
+    if k == "theatre":
+        if T.phase == "start":
+            if "Preoxygenate" not in T.done:
+                return "Preoxygenate first: it buys you minutes once they stop breathing."
+            return "Send them to sleep: Propofol, with Remifentanil for the laryngoscope."
+        if T.phase == "induced":
+            if v["tof"] > 1:
+                return "Asleep. Now relax them for the tube: Rocuronium."
+            return "Relaxed and asleep: set Airway to Intubated."
+        if T.phase == "surgery":
+            if v["bis"] > hi:
+                return "Too light for the knife: more Propofol (and Remifentanil for the response)."
+            if v["bis"] < lo:
+                return "Deeper than it needs to be: turn the Propofol down."
+            if v["response"] > 0.25:
+                return "The patient is responding to the surgeon: more Remifentanil."
+            return "Holding nicely. Keep BIS %d-%d and the blood pressure within a fifth of where it started." % (lo, hi)
+        if T.phase == "emergence":
+            if sum(T.inf.values()) > 0:
+                return "The operation is over: turn the infusions off (Stop infusions)."
+            if v["tof_ratio"] < 0.9:
+                return "Still paralysed: reverse it with Sugammadex (Neostigmine only works on a block already lifting)."
+            if v["bis"] < 80 or v["rr"] < 8:
+                return "Reversed. Now wait for them to wake up and breathe before the tube comes out."
+            return "Awake, breathing and reversed: set Airway to No support to take the tube out."
+        return "In recovery."
+    if T.phase == "start":
+        return "Start the sedation: Propofol runs best as an infusion (Midazolam if you want to see why it is harder to wake)."
+    if T.phase == "settle":
+        return ("Deepen to burst suppression, BIS %d-%d." if k == "coma" else "Settle them at BIS %d-%d (Ramsay 3-4).") % (lo, hi)
+    if T.phase == "hold":
+        rate = T.amount("Propofol", "infusion") * T.inf.get("Propofol", 0.0) / max(T.weight, 1.0)
+        if rate > 4.0 and T.phase_t > 6.0:
+            return ("Over 4 mg/kg/h of propofol for hours risks propofol infusion syndrome: add Midazolam to spare it, "
+                    "and keep BIS %d-%d.") % (lo, hi)
+        return "Hold BIS %d-%d. Watch the blood pressure: deep sedation costs it." % (lo, hi)
+    if T.phase == "wake":
+        return "Stop the sedation and let them come up (Stop infusions)."
+    if T.phase == "resedate":
+        return "Settle them again at BIS %d-%d." % (lo, hi)
+    return ""
+
+
+def organ_colours(item, c, d, drug):
+    """the 3D body: each organ coloured and barred by how much of the chosen drug it holds"""
+    lo, hi = next(iter(d["range"].values()))
+    tox = d["toxic"][0][0]
+    s_lo, s_hi = tissue_scale(c, lo, tox)
+    unit = d["unit"]
+    fmt = "%.2f" if hi < 10 else "%.1f" if unit == "mg/L" else "%.0f"
+    for k in range(5):
+        item["leg%d" % k] = fmt % (s_lo * (s_hi / s_lo) ** (k / 4.0))
+    item["unit"] = unit
+    a_r, l_r, k_r = c.flows()
+    rate_ref = max(a_r + l_r + k_r, 1e-9)
+    glow = {"gut": a_r / rate_ref, "liver": l_r / rate_ref, "kidney": k_r / rate_ref}
+    for t in ORGAN_VIEW:
+        ct = float(c.tissue(t)[0])
+        pos = math.log(max(ct, s_lo * 1e-3) / s_lo) / math.log(s_hi / s_lo)
+        col = scale_rgb(pos)
+        item["c_" + t] = hexc(col)
+        item["g_" + t] = hexc(col, 0.12 + 0.88 * min(1.0, glow[t]) if t in glow else 0.12)
+        item["p_" + t] = round(min(1.0, max(0.0, pos)), 3)
+        item["t_" + t] = (fmt % ct) + " " + unit
+    cp = float(c.plasma()[0])
+    pcol = scale_rgb(math.log(max(cp, lo * 1e-4) / (lo / 5.0)) / math.log(tox * 7.5 / lo))
+    item["c_blood"], item["g_blood"] = hexc(pcol), hexc(pcol, 0.4)
+
+
+def anaesthesia_run(ctx):
+    """the anaesthetist's simulator: one patient, one job, scored"""
+    import time
+    import torch
+    rng = np.random.default_rng(int(time.time() * 1000) % (2 ** 31))
+    scenario = str(ctx.params.get("an_scenario") or list(AN_SCENARIOS)[0])
+    patient = str(ctx.params.get("an_patient") or "Healthy man 35")
+    minutes = float(ctx.params.get("an_minutes") or 20.0)
+    focus = "Propofol"
+    T = Theatre(scenario, patient, rng, torch)
+    clocks = {"Real time": 1.0 / 3600.0, "1 min/s": 1.0 / 60.0, "5 min/s": 5.0 / 60.0, "15 min/s": 0.25, "1 h/s": 1.0}
+    speed, fps = 1.0 / 60.0, 5.0
+    shown = {"text": "", "until": 0.0}
+
+    def clock(h):
+        m = int(round(h * 60.0))                     # (round the minutes first, so 59.7 becomes 1:00, not 0:00)
+        return "T + %d:%02d" % (m // 60, m % 60)
+
+    def say(text):
+        ctx.telemetry("events", {"text": "%s · %s" % (clock(T.t), text)})
+
+    def flash(text):
+        shown["text"], shown["until"] = text, time.time() + 3.5
+
+    def restart(scen=None, who=None):
+        nonlocal T
+        T = Theatre(scen or T.scenario, who or T.patient_name, rng, torch)
+        ctx.telemetry("events", {"text": "─── %s ───" % T.scenario})
+        say("%s. %s" % (T.patient_name, T.sc["brief"]))
+        flash("Ready: %s, %s" % (T.patient_name, T.scenario))
+
+    def airway_to(want):
+        v = T.v or an_vitals(T.levels(), T.base, {"airway": T.airway, "o2": T.o2, "stimulus": 0.0, "roc_ce": 0.0})
+        if want == T.airway:
+            return
+        if want == "tube":
+            if v["bis"] > 80:
+                say("The patient is wide awake: the laryngoscope will not go in.")
+                flash("Too awake to intubate")
+                T.notes.append("tried to intubate an awake patient")
+                T.spike_until = T.t + 1.0 / 60.0
+                return
+            bad = []
+            if v["bis"] > 70:
+                bad.append("too light (BIS %d)" % v["bis"])
+            if v["tof"] > 1:
+                bad.append("not relaxed (train-of-four %d)" % v["tof"])
+            T.airway = "tube"
+            T.preox = True
+            T.spike_until = T.t + 1.0 / 60.0                 # (the laryngoscope itself is a stimulus)
+            T.tick("Intubated", say, "The tube is in." if not bad else
+                   "The tube is in, but the patient coughs and bucks: %s." % ", ".join(bad))
+            if bad:
+                T.notes.append("poor intubating conditions: " + ", ".join(bad))
+                T.spike_until = T.t + 2.0 / 60.0
+            flash("Intubated" if not bad else "Intubated: " + ", ".join(bad))
+            return
+        if T.airway == "tube" and want == "none":
+            safe = v["tof_ratio"] >= 0.9 and v["bis"] >= 80 and v["rr"] >= 8
+            T.airway = "none"
+            T.preox = False
+            if safe:
+                T.tick("Tube out", say, "The tube is out, and the patient is comfortable.")
+                flash("Extubated")
+            else:
+                why = []
+                if v["tof_ratio"] < 0.9:
+                    why.append("still weak")
+                if v["bis"] < 80:
+                    why.append("not awake")
+                if v["rr"] < 8:
+                    why.append("barely breathing")
+                T.notes.append("unsafe extubation: " + ", ".join(why))
+                T.tick("Tube out", say, "The tube is out too early: %s." % ", ".join(why))
+                flash("Unsafe extubation: " + ", ".join(why))
+            return
+        T.airway = want
+        if want == "mask":
+            T.preox = True
+            flash("Bag-mask ventilation")
+        else:
+            T.preox = False
+            flash("No airway support")
+
+    def handle(name, value):
+        nonlocal focus, speed
+        name = str(name).strip().lower()
+        if name == "scenario" and value in AN_SCENARIOS:
+            restart(scen=value)
+        elif name == "patient" and value in PROFILES:
+            restart(who=value)
+        elif name in ("start again", "restart"):
+            restart()
+        elif name == "drug" and value in AN_PATIENT_DRUGS:
+            focus = value
+            flash("%s chosen" % focus)
+        elif name == "dose":
+            T.dose_x[focus] = max(0.0, float(value))
+            flash("%s dose set to %g x the usual" % (focus, T.dose_x[focus]))
+        elif name == "give":
+            mg = T.give(focus)
+            say("%s %s given." % (focus, mg_text(focus, mg)))
+            flash("%s %s" % (focus, mg_text(focus, mg)))
+        elif name == "infusion":
+            T.set_infusion(focus, value)
+            r = T.amount(focus, "infusion") * T.inf[focus]
+            if r > 0:
+                say("%s infusion %s." % (focus, rate_text(focus, r, T.weight)))
+                flash("%s %s" % (focus, rate_text(focus, r, T.weight)))
+            else:
+                say("%s infusion off." % focus)
+                flash("%s infusion off" % focus)
+        elif name in ("stop infusions", "stop all"):
+            T.stop_infusions()
+            say("All infusions off.")
+            flash("All infusions off")
+        elif name == "preoxygenate":
+            T.preox = True
+            T.tick("Preoxygenate", say, "Preoxygenating: the lungs fill with oxygen.")
+            flash("Preoxygenating")
+        elif name == "airway" and value in AIRWAYS:
+            airway_to(AIRWAYS[value])
+        elif name == "clock":
+            speed = clocks.get(str(value), speed)
+        return False
+
+    restart()
+    t0, deadline, tick = time.time(), time.time() + minutes * 60.0, 0
+    beat, breath, last = 0.0, 0.0, time.time()
+    while time.time() < deadline:
+        try:
+            msgs = ctx.messages("control")
+        except Exception:      # noqa: BLE001
+            msgs = []
+        for msg in msgs or []:
+            d = msg.get("data") if isinstance(msg, dict) else None
+            if isinstance(d, dict) and "control" in d:
+                handle(d["control"], d.get("value"))
+        if not T.finished:
+            T.advance(speed / fps, say)
+        v = T.v or an_vitals(T.levels(), T.base, {"airway": T.airway, "o2": T.o2, "stimulus": 0.0, "roc_ce": 0.0})
+        C = T.levels()
+        now_s = time.time()
+        beat += (now_s - last) * v["hr"] / 60.0
+        breath += (now_s - last) * max(v["rr"], 0.0) / 60.0
+        last = now_s
+        rep = T.report()
+        fc = T.course(focus)
+        item = {"t_h": round(T.t, 3), "day": clock(T.t), "who": T.patient_name, "scenario": T.scenario,
+                "phase": PHASE_NAMES.get(T.phase, T.phase), "brief": T.sc["brief"], "hint": an_hint(T, v),
+                "beat": round(beat, 3), "breath": round(breath, 3), "rr": v["rr"], "glass": "#0a1626",
+                "drug": focus, "dose": T.dose_x.get(focus, 1.0), "infusion": T.inf.get(focus, 0.0),
+                "airway": {"none": "No support", "mask": "Bag-mask", "tube": "Intubated"}[T.airway],
+                "banner": shown["text"] if now_s < shown["until"] else "",
+                "banner_on": bool(shown["text"] if now_s < shown["until"] else ""),
+                "target": "Target BIS %d-%d" % T.sc["band"],
+                "score": rep["total"], "grade": rep["grade"],
+                "score_txt": "Score %d / 100 · %s" % (rep["total"], rep["grade"]),
+                "in_band": "%d%% at the right depth · %d%% with the pressure held" % (rep["in_band_pct"], rep["map_pct"]),
+                "focus_txt": "%s: effect site %s, plasma %s" % (
+                    focus, level_text(focus, C.get(focus, 0.0)), level_text(focus, float(fc.plasma()[0]))),
+                "why": "%s: %s" % (focus, dosing_text(focus, T))}
+        organ_colours(item, fc, DRUGS[focus], focus)
+        for i, s in enumerate(T.sc["steps"]):
+            item["s%d" % i] = ("v " if s in T.done else "o ") + s
+        for i in range(len(T.sc["steps"]), 8):
+            item["s%d" % i] = ""
+        lines = []
+        for name, c in T.drugs.items():
+            ce = C.get(name, 0.0)
+            r = T.amount(name, "infusion") * T.inf.get(name, 0.0)
+            if ce > 1e-4 or r > 0:
+                lines.append("%s %s%s" % (name, level_text(name, ce), " · " + rate_text(name, r, T.weight) if r > 0 else ""))
+            dl, dh = next(iter(DRUGS[name]["range"].values()))
+            item["lvl_" + slug(name)] = round(100.0 * ce / dh, 1)
+        for k in range(6):
+            item["d%d" % k] = lines[k] if k < len(lines) else ""
+        if not lines:
+            item["d0"] = "Nothing given yet."
+        ctx.telemetry("patient", item)
+        ctx.telemetry("vitals", dict(v, bp="%d/%d" % (v["sys"], v["dia"]), who=T.patient_name, day=clock(T.t),
+                                     drugs=lines, rhythm=rhythm_of(v), effects=v["notes"], nausea="none",
+                                     airway={"none": "no support", "mask": "bag-mask", "tube": "ventilated"}[T.airway],
+                                     sedation=v["ramsay"], sedation_txt=RAMSAY[v["ramsay"] - 1], pain=0,
+                                     qtc=T.base["qtc"], alarms=alarms_of(v, T), ectopy=0.0, dropped=0.0))
+        tick += 1
+        lag = t0 + tick / fps - time.time()
+        if lag > 0:
+            time.sleep(lag)
+        ctx.progress(min(99.0, 100.0 * (time.time() - t0) / (minutes * 60.0)),
+                     "%s · %s · BIS %d" % (T.patient_name, PHASE_NAMES.get(T.phase, T.phase), v["bis"]))
+    r = T.report()
+    ctx.log("%s · %s · %s" % (T.scenario, T.patient_name, r["line"]))
+    return {"scenario": T.scenario, "patient": T.patient_name, "score": r["total"], "grade": r["grade"],
+            "steps_done": "%d of %d" % (r["done"], r["of"]), "at_target_pct": r["in_band_pct"],
+            "pressure_held_pct": r["map_pct"], "minutes_hypoxic": r["hypox_min"], "times_moved": r["moves"]}
 # ── the 3D view's files ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 HEART_SOUND = "universfield-heartbeat-single-383748.mp3"     # (the project's assets: one heartbeat, one deep breath)
 BREATH_SOUND = "hasin2004-deep-breath-247459.mp3"
