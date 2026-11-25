@@ -1,8 +1,8 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 47 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 48 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
-# Saved: 2026-11-24
+# Saved: 2026-11-25
 #
 # Inputs   ctx.inputs["id"] is a list of files: .path .name .size .read_text() .read_json()
 #   ct          Files (gz, nii)           CT case · several · optional · Make the 3D models: a CT case with its labels (ct.nii.gz and segmentations/<structure>.nii.gz, as the TotalSegmentator dataset gives them). Without it, the CT case setting, else a mockup body.
@@ -241,6 +241,8 @@ DRUGS["Digoxin"].update({"give": (0.25, "oral", 0.0), "regular": (0.25, 24.0, "o
 for _d in DRUGS.values():
     _d["ka"].setdefault("Oral (sustained release)", _d["ka"]["Oral (immediate release)"])
 
+BEDSIDE_DRUGS = list(DRUGS)          # (the drug-dosing study's twelve: the anaesthetist's are added below)
+
 
 def kp_rodgers_rowland(drug):
     """tissue:plasma partition coefficients (Rodgers & Rowland 2006: acids, very weak bases, neutrals)"""
@@ -367,8 +369,9 @@ def patients(pop, drug, route):
     ref_liver = np.where(pop["female"], REF["liver"][1], REF["liver"][0])
     clint = clint_ref * act * V["liver"] / REF["liver"][0] * np.where(pop["female"], REF["liver"][0] / ref_liver, 1.0)
     cl_renal = drug["cl_renal"] * pop["gfr"] / 120.0
-    return {"V": V, "Q": Q, "Kp": Kp, "fu": fu, "bp": bp, "clint": clint, "clr": cl_renal, "F": drug["F"],
-            "ka": drug["ka"].get(route, 1.5), "k": drug.get("unit_k", 1.0)}
+    cl_blood = drug.get("cl_blood_per_kg", 0.0) * pop["weight"]      # (esterases in the blood itself: remifentanil)
+    return {"V": V, "Q": Q, "Kp": Kp, "fu": fu, "bp": bp, "clint": clint, "clr": cl_renal, "clb": cl_blood,
+            "F": drug["F"], "ka": drug["ka"].get(route, 1.5), "k": drug.get("unit_k", 1.0)}
 
 
 def _vss(kp, V, vblood, bp):
@@ -401,6 +404,10 @@ def system_matrix(m):
     # elimination: the liver (unbound concentration there: C * fu / Kp), the kidneys (filtered from the plasma there)
     A[:, IX["liver"], IX["liver"]] -= m["clint"] * m["fu"] / (Kp["liver"] * V["liver"])
     A[:, IX["kidney"], IX["kidney"]] -= m["clr"] / (Kp["kidney"] * V["kidney"])
+    # broken down in the blood itself (esterases), at the same rate wherever the blood is
+    kb = np.asarray(m.get("clb", 0.0)) / (V["arterial"] + V["venous"])
+    A[:, a, a] -= kb
+    A[:, v, v] -= kb
     # absorption: the lumen into the gut wall
     flow(ln, IX["gut"], m["ka"] * np.ones(n))
     return A
@@ -889,7 +896,7 @@ def clearance(m):
     """each patient's total clearance (L/h): the liver's (well-stirred) and the kidneys'"""
     q = (m["Q"]["liver"] + sum(m["Q"][t] for t in PORTAL))
     fub = m["fu"] / m["bp"]
-    return q * fub * m["clint"] / (q + fub * m["clint"]) + m["clr"]
+    return q * fub * m["clint"] / (q + fub * m["clint"]) + m["clr"] + np.asarray(m.get("clb", 0.0))
 
 
 def condition(pop, i):
@@ -1287,14 +1294,15 @@ def side_effects_now(v, C, b, expo, dt):
 class DrugCourse:
     """one drug in the patient: its own exact linear model (the drugs do not change one another's kinetics here)"""
 
-    def __init__(self, name, pop, torch, t):
-        self.name, self.d = name, DRUGS[name]
+    def __init__(self, name, pop, torch, t, dt=DT):
+        self.name, self.d, self.dt = name, DRUGS[name], dt
         self.m = patients(pop, self.d, "Oral (immediate release)")
-        Phi, Gam = discretise(system_matrix(self.m), DT, torch, "cpu")
+        Phi, Gam = discretise(system_matrix(self.m), dt, torch, "cpu")
         self.Phi, self.Gam = Phi.numpy(), Gam.numpy()
         n = len(self.m["clint"])
         self.x = np.zeros((n, NS))
         self.rate = np.zeros(n)
+        self.base_rate = 0.0                  # (mg/h: an infusion that runs until it is turned off)
         self.infusions = []
         self.ce = np.zeros(n)
         self.regular, self.next = False, t
@@ -1314,13 +1322,13 @@ class DrugCourse:
                 self.rate -= r
                 self.infusions.remove((end, r))
         m, x = self.m, self.x
-        self.cum += DT * np.array([m["ka"] * x[0, IX["lumen"]],
+        self.cum += self.dt * np.array([m["ka"] * x[0, IX["lumen"]],
                                    m["clint"][0] * m["fu"][0] / (m["Kp"]["liver"][0] * m["V"]["liver"][0]) * x[0, IX["liver"]],
                                    m["clr"][0] / (m["Kp"]["kidney"][0] * m["V"]["kidney"][0]) * x[0, IX["kidney"]]])
-        self.x = np.einsum("bij,bj->bi", self.Phi, x) + self.Gam * self.rate[:, None]
+        self.x = np.einsum("bij,bj->bi", self.Phi, x) + self.Gam * (self.rate + self.base_rate)[:, None]
         ke0 = self.d.get("ke0")
         cp = self.plasma()
-        self.ce = cp if not ke0 else self.ce + (cp - self.ce) * (1 - math.exp(-ke0 * DT))
+        self.ce = cp if not ke0 else self.ce + (cp - self.ce) * (1 - math.exp(-ke0 * self.dt))
 
     def plasma(self):
         return self.x[:, IX["venous"]] / self.m["V"]["venous"] / self.m["bp"] * self.m["k"]
@@ -1681,7 +1689,7 @@ def scene_file(offset=(0.0, 0.0, 0.042), look_z=1.0, prefix="models/"):
         "cameras": [{"id": "front", "type": "orbit", "position": [0.55, 1.45, z + 0.35], "look_at": [0, 0, z]}], "start": "front",
         "controls": [
             {"type": "select", "name": "patient", "label": "Patient", "options": list(PROFILES)},
-            {"type": "select", "name": "drug", "label": "Drug", "options": list(DRUGS)},
+            {"type": "select", "name": "drug", "label": "Drug", "options": BEDSIDE_DRUGS},
             {"type": "slider", "name": "dose", "label": "Dose ×", "min": 0.25, "max": 4, "value": 1, "step": 0.25},
             {"type": "button", "label": "Give dose", "send": "give"},
             {"type": "toggle", "name": "regular", "label": "Regular"},
@@ -1821,6 +1829,8 @@ def models_run(ctx):
 
 def run(ctx):
     what = str(ctx.params.get("mode") or "Run a virtual trial").lower()
+    if "anaesth" in what or "anesth" in what:
+        return anaesthesia_run(ctx)
     if "model" in what:
         return models_run(ctx)
     if "dose" in what:

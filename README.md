@@ -22,7 +22,7 @@ A whole-body physiologically based pharmacokinetic (PBPK) model follows each dru
 
 The same dose behaves very differently in different people. A smoker clears theophylline 1.6 times faster than a non-smoker; an 84-year-old with poor kidneys builds up digoxin to toxic levels on a dose that suits a 35-year-old; midazolam, stored in fat, sedates an older patient for much longer. And drugs change each other's effects: an antidote reverses a sedative, a beta-blocker slows the heart that a bronchodilator speeds up but narrows the airways it opens.
 
-This project models both. Each drug moves through 14 organs and the blood in each patient's own body (the pharmacokinetics, mechanistic); its levels at the sites where it acts set the vital signs, with the drugs adding up or cancelling (the pharmacodynamics, simplified). The model is linear in each drug, so it is solved exactly, for one patient live or for thousands at once.
+This project models both. Each drug moves through 14 organs and the blood in each patient's own body (the pharmacokinetics, mechanistic); its levels at the sites where it acts set the vital signs and the side effects, with the drugs adding up or cancelling (the pharmacodynamics, simplified). The model is linear in each drug, so it is solved exactly, for one patient live or for thousands at once.
 
 ## Flows
 
@@ -46,7 +46,7 @@ Every population across the drug's whole dose range: for each, a curve of the sh
 |---|---|
 | **The bedside** | The patient and every drug given, simulated live, with a healthy adult on the same doses for comparison. Stays open 20 minutes (Bedside: minutes it stays open). |
 | **The patient, live** | Sends the patient, the vitals and the events to the views. |
-| **The patient (3D)** | The patient built from a CT scan, the drugs in the organs, the heart beating and the chest breathing; the controls; what to do next. |
+| **The patient (3D)** | The patient built from a CT scan, the drugs in the organs, the heart beating and the chest breathing, the side effects as they come and go; the controls; what to do next. |
 | **Bedside monitor** | ECG, pulse oximetry and breathing waveforms, the vital signs and the alarms. |
 | **Drug levels** | Each drug given, as a share of the top of its target range, over the last 90 seconds. |
 
@@ -73,32 +73,34 @@ Run flow 3 and open the **View**. Everything is done from the bar under the 3D p
 
 After each control a message appears across the middle of the 3D view for a few seconds (*Morphine 4 mg IV given*, *Started again: Healthy man 35, Day 1, no drugs*…). It takes a second or two: the control goes to the simulation on the worker and comes back.
 
-**What to do next.** The yellow line at the top of the 3D view reads the alarms and the drugs on board and suggests the next step: at the start, to choose a drug and give it; when morphine slows the breathing, to give naloxone; when digoxin blocks the heart, to give atropine and stop the regular doses; when propranolol narrows an asthmatic's airways, to stop it and give salbutamol; pain, fever, wheeze and nausea each point to the drug that treats them; a racing heart, low blood pressure or a long QTc to what to slow, stop or avoid. When nothing is wrong it says so and suggests raising the dose, adding another drug or a faster clock.
+**What to do next.** The yellow box at the top of the 3D view reads the alarms and the drugs on board and suggests the next step: at the start, to choose a drug and give it; when morphine slows the breathing, to give naloxone; when digoxin blocks the heart, to give atropine and stop the regular doses; when propranolol narrows an asthmatic's airways, to stop it and give salbutamol; pain, fever, wheeze and nausea each point to the drug that treats them; a racing heart, low blood pressure or a long QTc to what to slow, stop or avoid. When nothing is wrong it says so and suggests raising the dose, adding another drug or a faster clock.
 
 **Sound and the mouse.** Click **Sound on** (top right of the 3D view) to hear the heartbeat and the breathing. Drag with the left button to turn the patient in your hand, double-click to put it back; the wheel zooms and the right button moves the view.
 
 ### A few things to try
 
-- *Elderly woman 84*, Morphine, **Give dose** three times: breathing slows and SpO₂ falls, with alarms. Then **Naloxone**: she breathes again, until it wears off before the morphine does.
-- *Kidney failure 66*, Digoxin, **Regular**, clock 4 h/s: over a few days the level climbs, the heart slows and heart block appears (dropped beats on the ECG, and the heart in 3D). **Atropine** lifts it for a while; **Stop all** lets it clear, slowly.
-- *Asthma attack 28*: **Salbutamol** opens the airways and SpO₂ rises; **Propranolol** narrows them again.
-- *After surgery 50*: **Morphine** treats the pain but brings nausea; **Ondansetron** stops it and lengthens the QTc.
+- *Elderly woman 84*, Morphine, **Give dose** three times: breathing slows and SpO₂ falls, with alarms, and the side effects list them. Then **Naloxone**: she breathes again, until it wears off before the morphine does.
+- *Kidney failure 66*, Digoxin, **Regular**, clock 4 h/s: over a few days the level climbs, the heart slows, heart block and yellow-tinged vision appear. **Atropine** lifts the block for a while; **Stop all** lets the digoxin clear, slowly.
+- *Asthma attack 28*: **Salbutamol** opens the airways and SpO₂ rises (with a tremor); **Propranolol** narrows them again.
+- *After surgery 50*: **Morphine** treats the pain but brings nausea, and constipation if kept on **Regular** for a day; **Ondansetron** stops the nausea and lengthens the QTc.
 - *Pneumonia with fever 64*: **Paracetamol** brings the temperature down.
-- *Smoker 45* against *Liver cirrhosis 58*, Theophylline **Regular**: the smoker stays low, the cirrhotic climbs into the toxic range (fast heart, ectopic beats, nausea).
+- *Smoker 45* against *Liver cirrhosis 58*, Theophylline **Regular**: the smoker stays low, the cirrhotic climbs into the toxic range (restlessness, fast heart, extra beats, nausea).
+- *Heart failure 72*, Amlodipine **Regular**, clock 12 h/s: blood pressure falls over days, and after three days the ankles swell.
 
 ### Reading the windows
 
 **The 3D patient**
-- **Organ colours**: how much of the chosen drug each organ holds, on a log scale from indigo (hardly any) through violet, magenta and orange to pale yellow (the most).
-- **The organ bars** (left): the same scale as the colours, one bar per organ, from 0% (hardly any) to 100% (the most). The scale under the bars gives what 0%, 25%, 50%, 75% and 100% mean in the drug's unit (mg/L or ng/mL); it changes with the drug chosen.
-- **Glow**: the gut while it absorbs a dose, the liver and the kidneys while they clear the drug.
-- **The heart** contracts on every beat the model counts at the live heart rate (a dropped beat in heart block is skipped), with the heartbeat sound. **The lungs and the ribcage** rise on every breath at the live breathing rate, with the breath sound: a slow, shallow patient breathes visibly slower.
-- **Top left**: the patient, the day and time, and the drugs on board with their levels (*in range*, *low*, *high* or the toxic effect). **Left**, above the bars: the chosen drug's plasma level against its target and a healthy adult's, this patient's clearance and half-life against a healthy adult's, and how much has been absorbed and cleared by the liver and kidneys. **Bottom right**: the events, as they happen.
+- **Organ colours**: how much of the chosen drug each organ holds, on a log scale from indigo (hardly any) through violet, magenta and orange to pale yellow (the most). The gut glows while it absorbs a dose, the liver and the kidneys while they clear the drug.
+- **Top left, Virtual patient**: the patient, the day and time, and the drugs on board with their levels (*in range*, *low*, *high* or the toxic effect).
+- **Left, Where the chosen drug is**: its plasma level against its target and a healthy adult's; this patient's clearance and half-life against a healthy adult's; one bar per organ, on the same scale as the colours, from 0% (hardly any) to 100% (the most), with what 0%, 25%, 50%, 75% and 100% mean in the drug's unit (mg/L or ng/mL) underneath.
+- **Top right, Side effects**: each side effect as it starts, top to bottom in the order they appear, with where in the body it acts, the drug causing it and since when (●); when it passes it stays a few hours with its start and end (○).
+- **Bottom right**: the events, as they happen (doses, levels entering or leaving the range, side effects starting and passing, alarms).
+- **The heart** contracts on every beat the model counts at the live heart rate (a dropped beat in heart block is skipped), with the heartbeat sound. **The lungs and the ribcage** rise on every breath at the live breathing rate, with the breath sound.
 
 **The bedside monitor**
 - The ECG, pulse oximetry (pleth) and breathing waveforms, drawn in real time at the patient's current rates. Ectopic beats, dropped beats and a long QT show on the ECG.
 - HR with the rhythm, SpO₂, breathing rate (RESP), blood pressure (NIBP, with the mean), temperature, QTc, pain (0–10) and sedation (Ramsay 1–6).
-- Below: nausea, the airways, other effects (tremor, seizure risk, delirium…), and the drugs on board. The alarms show at the top in red (dangerous) or amber.
+- Below: nausea, the airways, other effects, and the drugs on board. The alarms show at the top in red (dangerous) or amber.
 - **Beep** turns on a pulse-oximetry beep, its pitch falling with SpO₂.
 
 **Drug levels**: each drug given, as a percentage of the top of its target range (100 = the top of the range), over the last 90 seconds of the run. Drag on it to zoom in; double-click to follow it live again.
@@ -107,20 +109,24 @@ After each control a message appears across the middle of the 3D view for a few 
 
 | Drug | What it does | Side effects in the model | Corrected by |
 |---|---|---|---|
-| **Theophylline** | opens the airways | fast heart, ectopic beats, nausea, tremor; seizure risk above 40 mg/L | propranolol (but it narrows asthmatic airways) |
+| **Theophylline** | opens the airways | restlessness, fast heart, extra beats, nausea, tremor; seizure risk above 40 mg/L | propranolol (but it narrows asthmatic airways) |
 | **Midazolam** | sedation | deep sedation, slow breathing, low SpO₂, low blood pressure | flumazenil |
-| **Digoxin** | heart failure, atrial fibrillation | slow heart, heart block, ventricular ectopy, nausea, longer QTc | atropine |
-| **Morphine** | pain relief | sedation, slow breathing, low SpO₂, nausea | naloxone; ondansetron for the nausea |
-| **Naloxone** | reverses opioids | wears off before morphine; pain comes back | – |
+| **Digoxin** | heart failure, atrial fibrillation | slow heart, heart block, extra beats, nausea, yellow-tinged vision, longer QTc | atropine |
+| **Morphine** | pain relief | sedation, slow breathing, low SpO₂, nausea; constipation after a day | naloxone; ondansetron for the nausea |
+| **Naloxone** | reverses opioids | sudden withdrawal (pain, agitation) at high doses; wears off before morphine | – |
 | **Flumazenil** | reverses benzodiazepines | wears off before midazolam | – |
-| **Propranolol** | slows the heart, lowers blood pressure | narrows the airways in asthma, blunts salbutamol | – |
+| **Propranolol** | slows the heart, lowers blood pressure | narrows the airways in asthma, blunts salbutamol; tiredness and cold hands after a day | – |
 | **Atropine** | speeds the heart | delirium, hot dry skin at high levels | – |
 | **Ondansetron** | stops nausea | longer QTc | – |
-| **Paracetamol** | mild pain relief, lowers fever | liver injury risk at high levels | – |
-| **Amlodipine** | lowers blood pressure slowly, for days | a reflex rise in heart rate | propranolol |
+| **Paracetamol** | mild pain relief, lowers fever | liver injury risk above 150 mg/L | – |
+| **Amlodipine** | lowers blood pressure slowly, for days | a reflex rise in heart rate; ankle swelling after three days | propranolol |
 | **Salbutamol** | opens the airways | fast heart, tremor | – |
 
 Theophylline and paracetamol are in mg/L, the others in ng/mL.
+
+### When the side effects appear
+
+Most side effects follow the drug's level at the site where it acts, so they appear when the level crosses a threshold and pass when it falls back: within minutes for IV drugs (morphine, midazolam, naloxone, salbutamol), within an hour or two for drugs by mouth, and over days for drugs that build up slowly with regular doses (digoxin, amlodipine, theophylline in a slow clearer). Three come only after continued use: **constipation** after a day on morphine, **tiredness and cold hands** after a day on propranolol, **ankle swelling** after three days on amlodipine; they fade as slowly when the drug is stopped.
 
 ## The patients
 
@@ -170,6 +176,7 @@ The trials draw thousands from seven populations: healthy adults, smokers, elder
 | **Elimination** | well-stirred liver on the unbound drug, calibrated to the observed clearance, plus renal excretion scaled by GFR; smoking, cirrhosis and heart failure change the liver's capacity, drug by drug |
 | **Solution** | exact 6-minute steps with a matrix exponential (PyTorch, CPU or GPU) |
 | **Effects** | receptor occupancy (Emax) at each drug's effect site (an effect compartment where the effect lags the plasma; digoxin's level in the heart itself); competitive antagonists (naloxone, flumazenil); beta-blockade; breathing depression by opioids and benzodiazepines together; airway narrowing; heart rhythm (ectopy, heart block, QTc); pain, fever and nausea |
+| **Side effects** | 21 side effects, each tied to where it acts in the body and to the drugs that cause it: present while the vitals or the drug's level say so, the three late ones after the hours of exposure they need |
 | **Heartbeats and breaths** | counted in real time at the live heart and breathing rates, so the 3D heart, the chest, the sounds and the monitor all follow the same patient |
 
 Checked against the literature for a 73 kg adult: theophylline half-life about 9 h (observed about 8 h), midazolam about 2.7 h (1.8–6.4 h), digoxin about 40–50 h (about 40 h); digoxin 0.25 mg a day gives about 1 ng/mL in a healthy adult and over 2 ng/mL with a GFR of 20–40 mL/min.
@@ -197,12 +204,13 @@ To rebuild the model, run **Maintenance · Make the 3D models**, press **Downloa
 - **Theophylline**: Clin Pharmacokinet 1978;3:267–93; Abduljalil K et al. Front Pediatr 2022; Jusko WJ et al. J Pharm Sci 1979;68:1358–66.
 - **Midazolam**: Molecules 2020;25:1080; the US prescribing information; Sunzel M et al. Br J Clin Pharmacol 1988.
 - **Digoxin**: Iisalo E. Clin Pharmacokinet 1977;2:1–16.
-- **The other nine drugs**: their prescribing information and standard pharmacology references.
+- **The other nine drugs and the side effects**: their prescribing information and standard pharmacology references.
 - The code of the blocks is EsaSim's.
 
 ## Notes
 
-- The pharmacokinetics are mechanistic; the effects, the interactions, the suggestions and the baseline vital signs are simplified and illustrative, following published thresholds and half-effect levels where they exist.
+- The pharmacokinetics are mechanistic; the effects, the interactions, the side effects' thresholds and timings, the suggestions and the baseline vital signs are simplified and illustrative, following published thresholds and half-effect levels where they exist.
+- Side effects are switched on and off by thresholds; their severity is shown by the vitals, not graded in the list. Inflammation and allergic reactions are not modelled.
 - The nine added drugs use typical literature values; strong bases' binding to tissue phospholipids is not modelled, so their organ-by-organ pattern is approximate (their total volume is right). Clearances above the liver's blood flow are capped.
 - Drugs interact through their effects only, not their kinetics (no enzyme inhibition or induction). Absorption is first order, elimination linear. Digoxin's binding to the sodium pump is not modelled.
 - The 3D body is one scanned person, neck to pelvis: it does not change with the virtual patient, and the brain has no surface. The breathing moves the ribcage and the lungs only; the skin stays still.
@@ -223,7 +231,7 @@ An [EsaSim](https://esacode.com/) project of the workspace Gianluca De Novi's wo
 
 ### Workspace blocks it uses
 
-- [Virtual patients (PBPK dosing)](blocks/ws-virtual-patients-pbpk-dosing) · version 47
+- [Virtual patients (PBPK dosing)](blocks/ws-virtual-patients-pbpk-dosing) · version 48
 - [Bedside monitor](blocks/ws-bedside-monitor) · version 2
 - [Model files (preview and download)](blocks/ws-model-files-preview-and-download) · version 1
 
