@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 59 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 60 · worker block, Python: def run(ctx)
 # A whole-body pharmacokinetic model of twenty drugs in virtual patients: trials, the best dose per population, a live bedside, and an anaesthesia room where a case is run and scored
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-25
@@ -1534,8 +1534,8 @@ def bedside_run(ctx):
         cl, half = b.why(focus)
         h = b.t
         now_s = time.time()
-        beat += (now_s - last) * v["hr"] / 60.0 * (1.0 - 0.5 * v["dropped"])
-        breath += (now_s - last) * v["rr"] / 60.0
+        beat = (beat + (now_s - last) * v["hr"] / 60.0 * (1.0 - 0.5 * v["dropped"])) % 1200.0
+        breath = (breath + (now_s - last) * v["rr"] / 60.0) % 1200.0
         last = now_s
         banner = shown["text"] if now_s < shown["until"] else ""
         item = {"hint": advice(v, C, b), "banner": banner, "banner_on": bool(banner), "t_h": round(elapsed, 2), "day": clock(h), "beat": round(beat, 3), "breath": round(breath, 3), "who": b.patient_name, "patient": b.patient_name, "drug": focus,
@@ -2362,8 +2362,10 @@ def anaesthesia_run(ctx):
         v = T.v or an_vitals(T.levels(), T.base, {"airway": T.airway, "o2": T.o2, "stimulus": 0.0, "roc_ce": 0.0})
         C = T.levels()
         now_s = time.time()
-        beat += (now_s - last) * v["hr"] / 60.0
-        breath += (now_s - last) * max(v["rr"], 0.0) / 60.0
+        # (the view animates on the fraction of these, so wrapping them at a whole number is seamless and keeps a
+        #  long case from counting into numbers the view draws badly)
+        beat = (beat + (now_s - last) * v["hr"] / 60.0) % 1200.0
+        breath = (breath + (now_s - last) * max(v["rr"], 0.0) / 60.0) % 1200.0
         last = now_s
         rep = T.report()
         fc = T.course(focus)
