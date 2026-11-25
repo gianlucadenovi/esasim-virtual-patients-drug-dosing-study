@@ -1,5 +1,5 @@
 // ── EsaSim block ──────────────────────────────────────────────────────
-// Anaesthetic trolley (ws-anaesthetic-trolley) · version 3 · view, JavaScript: function render(ctx)
+// Anaesthetic trolley (ws-anaesthetic-trolley) · version 5 · view, JavaScript: function render(ctx)
 // The anaesthetist's trolley: the briefing first (the job, what you have to achieve, do it yourself or be shown the sequence), then the drugs, the airway and the case
 // Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 // Saved: 2026-11-25
@@ -36,6 +36,8 @@ function render(ctx) {
   var AIRWAYS = ['No support', 'Bag-mask', 'Intubated'];
 
   var drug = 'Propofol', route = 'bolus', x = 1, V = null, busy = false, briefed = false, shownProtocol = false;
+  // the room is a second or two away: a press is acknowledged here at once, and shown as waiting until it answers
+  var pend = null, lastBanner = '', ackText = '', ackAt = 0;
 
   ctx.el.innerHTML = '';
   var root = el('div', 'display:flex;flex-direction:column;gap:8px;width:100%;height:100%;padding:10px;box-sizing:border-box;' +
@@ -74,6 +76,7 @@ function render(ctx) {
   var hint = el('div', 'flex:1;padding:7px 10px;border-radius:6px;background:#1b1706;border:1px solid #4a3c0c;' +
     'color:#ffe08a;font-size:12.5px', topRow);
   btn(topRow, 'The job', function () { setBriefed(false); }, 'align-self:stretch');
+  var status = el('div', 'display:none;padding:6px 10px;border-radius:6px;font-size:12.5px', work);
 
   var card = box(work, 'Give a drug');
   var favs = el('div', 'display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px', card);
@@ -105,16 +108,16 @@ function render(ctx) {
   var go = btn(card, 'Administer', administer,
     'width:100%;padding:9px;background:#16643a;border-color:#1f8a50;color:#eaffee;font-weight:700;font-size:14px');
   var running = el('div', 'margin-top:8px;font-size:12px;color:#e879f9;min-height:16px', card);
-  btn(card, 'Stop every infusion', function () { send({ control: 'stop infusions', value: true }); },
+  var stopB = btn(card, 'Stop every infusion', function () { send({ control: 'stop infusions', value: true }, stopB); },
     'width:100%;margin-top:6px');
 
   var air = box(work, 'The airway and the oxygen');
   var preox = btn(air, 'Preoxygenate · fill the lungs with oxygen', function () {
-    send({ control: 'preoxygenate', value: true });
+    send({ control: 'preoxygenate', value: true }, preox);
   }, 'width:100%;margin-bottom:7px');
   var airRow = el('div', 'display:flex;gap:6px', air);
   var airB = {};
-  AIRWAYS.forEach(function (a) { airB[a] = tab(airRow, a, function () { send({ control: 'airway', value: a }); }); });
+  AIRWAYS.forEach(function (a) { airB[a] = tab(airRow, a, function () { send({ control: 'airway', value: a }, airB[a]); }); });
 
   var job = box(work, 'The case');
   var who = el('div', 'color:#c9d1dc;font-size:12.5px;margin-bottom:7px', job);
@@ -193,13 +196,60 @@ function render(ctx) {
   }
   function doses() { return (V && V.doses) || {}; }
   function infusionNow(n) { return (V && V.inf && V.inf[n]) || 0; }
-  function send(msg) {
+  function what(msg) {
+    var c = msg.control, v = msg.value;
+    if (c === 'administer') return v.drug + ' ' + big.textContent + (v.route === 'infusion' ? ' infusion' : '');
+    if (c === 'airway') return 'Airway: ' + v;
+    if (c === 'clock') return 'Clock ' + v;
+    if (c === 'stop infusions') return 'Stop every infusion';
+    if (c === 'preoxygenate') return 'Preoxygenate';
+    if (c === 'demo') return 'Demo';
+    if (c === 'start again') return 'Start again';
+    if (c === 'scenario') return v;
+    return c;
+  }
+  function paint() {
+    var now = Date.now();
+    if (pend && now - pend.t < 9000) {
+      status.style.display = '';
+      status.style.background = '#1b1706';
+      status.style.border = '1px solid #4a3c0c';
+      status.style.color = '#ffe08a';
+      status.textContent = '… ' + pend.label + ' — sent to the room, a second or two to take effect';
+    } else if (pend) {
+      pend = null;
+      status.style.background = '#2a1114';
+      status.style.border = '1px solid #6b2230';
+      status.style.color = '#ffb4b4';
+      status.textContent = 'No answer from the room. Is the run still going?';
+      ackAt = now; ackText = '';
+    } else if (ackText && now - ackAt < 4000) {
+      status.style.display = '';
+      status.style.background = '#0d2318';
+      status.style.border = '1px solid #1f6b42';
+      status.style.color = '#8ef0b5';
+      status.textContent = '✓ ' + ackText;
+    } else if (!ackText || now - ackAt > 4000) {
+      if (!pend) status.style.display = 'none';
+    }
+  }
+  function flashBtn(b) {
+    if (!b) return;
+    var bg = b.style.background;
+    b.style.background = '#3b63ab';
+    setTimeout(function () { b.style.background = bg; }, 160);
+  }
+  function send(msg, from) {
     if (busy) return;
     busy = true;
+    pend = { label: what(msg), t: Date.now() };
+    ackText = '';
+    flashBtn(from);
+    paint();
     var done = function () { busy = false; };
     try { ctx.send(CH, msg, TO ? { node: TO } : null).then(done, done); } catch (e) { done(); }
   }
-  function administer() { send({ control: 'administer', value: { drug: drug, x: x, route: route } }); }
+  function administer() { send({ control: 'administer', value: { drug: drug, x: x, route: route } }, go); }
 
   function draw() {
     var d = doses()[drug] || {};
@@ -257,6 +307,10 @@ function render(ctx) {
     }
     fill(bSteps, steps);
     fill(pList, V.protocol && V.protocol.length ? V.protocol : ['Reading the protocol from the room…']);
+    var b = V.banner || '';
+    if (b && b !== lastBanner) { pend = null; ackText = b; ackAt = Date.now(); }   // the room has answered
+    lastBanner = b;
+    paint();
     hint.textContent = V.hint || '';
     who.textContent = [V.who, V.phase, V.day].filter(Boolean).join(' · ');
     AIRWAYS.forEach(function (a) { mark(airB[a], a === V.airway); });
@@ -270,6 +324,7 @@ function render(ctx) {
   }
 
   ctx.on('update', update);
+  setInterval(paint, 400);                 // (so "sent" turns into "no answer" even if the run has stopped)
   layout();
   update();
   draw();
