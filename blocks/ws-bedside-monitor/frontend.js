@@ -1,8 +1,8 @@
 // ── EsaSim block ──────────────────────────────────────────────────────
-// Bedside monitor (ws-bedside-monitor) · version 2 · view, JavaScript: function render(ctx)
+// Bedside monitor (ws-bedside-monitor) · version 3 · view, JavaScript: function render(ctx)
 // A bedside patient monitor: ECG, pulse oximetry and breathing waveforms, vitals (HR, SpO2, resp, BP, temperature, QTc, pain, sedation), alarms and the drugs on board
 // Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
-// Saved: 2026-11-24
+// Saved: 2026-11-25
 //
 // Inputs   ctx.input("id") gives { files, stream }; ctx.rows("id"), ctx.json("id"), ctx.text("id")
 //   stream      Stream                    Live telemetry · The vitals
@@ -14,6 +14,8 @@
 // Bedside monitor: the patient's vitals as a bedside monitor shows them (ECG, pulse oximetry and breathing waveforms,
 // the numbers, the alarms, an optional beep). Reads the telemetry channel "vitals". The patient and the drugs are
 // chosen and given from the 3D view's controls.
+// When the telemetry carries a depth of anaesthesia (BIS) the monitor shows that and the train-of-four in place of the
+// pain score, the way an anaesthetic machine's screen does.
 function render(ctx) {
   var p = ctx.params || {};
   var CH = p.channel || 'vitals';
@@ -44,8 +46,11 @@ function render(ctx) {
     spo2: box('SpO₂', '#22d3ee', '%', 1), rr: box('RESP', '#facc15', '/min', 1),
     bp: box('NIBP', '#f87171', 'mmHg', 2),
     temp: box('TEMP', '#e5e7eb', '°C', 1), qtc: box('QTc', '#fb923c', 'ms', 1),
-    pain: box('PAIN', '#f9a8d4', '/10', 1), sed: box('SEDATION', '#a5b4fc', 'Ramsay', 1)
+    pain: box('PAIN', '#f9a8d4', '/10', 1), sed: box('SEDATION', '#a5b4fc', 'Ramsay', 1),
+    bis: box('BIS', '#c084fc', 'depth', 1), tof: box('TOF', '#5eead4', 'twitches', 1)
   };
+  N.bis.b.style.display = 'none';                 // (only an anaesthetised patient has these)
+  N.tof.b.style.display = 'none';
   var foot = el('div', 'padding:5px 12px;background:#080b13;border-top:1px solid #141b2b;font-size:12px;color:#9aa3b2;display:flex;flex-direction:column;gap:2px', root);
   var fClin = el('div', '', foot), fDrugs = el('div', 'color:#e879f9', foot);
 
@@ -80,6 +85,19 @@ function render(ctx) {
     N.temp.v.textContent = (+V.temp).toFixed(1);
     N.qtc.v.textContent = V.qtc;
     N.pain.v.textContent = V.pain != null ? Math.round(+V.pain) : '--';
+    var anaes = V.bis != null;
+    N.pain.b.style.display = anaes ? 'none' : '';
+    N.bis.b.style.display = anaes ? '' : 'none';
+    N.tof.b.style.display = anaes ? '' : 'none';
+    if (anaes) {
+      N.bis.v.textContent = V.bis;
+      N.bis.s.textContent = V.bis < 20 ? 'burst suppression' : V.bis <= 60 ? 'anaesthetised'
+        : V.bis <= 80 ? 'sedated' : 'awake';
+      N.bis.v.style.color = V.bis > 65 ? '#f87171' : V.bis < 20 ? '#60a5fa' : '#c084fc';
+      N.tof.v.textContent = V.tof;
+      N.tof.s.textContent = V.tof_ratio != null ? 'ratio ' + (+V.tof_ratio).toFixed(2) : '';
+      N.tof.v.style.color = V.tof === 0 ? '#f87171' : '#5eead4';
+    }
     N.sed.v.textContent = V.sedation != null ? V.sedation : '--'; N.sed.s.textContent = V.sedation_txt || '';
     N.qtc.v.style.color = +V.qtc >= 500 ? '#f87171' : '#fb923c';
     fClin.textContent = 'Nausea: ' + (V.nausea || '–') + ' · Airways: ' + (V.airway || '–') + ' · Other effects: ' + (V.effects || 'none');
