@@ -5,8 +5,8 @@
     },
     "name": "4 · Anaesthesia room: induce, maintain, wake up (3D)",
     "description": "The same patient with a job to do and a score at the end: a four-hour operation, a day of intensive-care sedation with the wake-up test, or a therapeutic coma — depth of anaesthesia, train-of-four, the oxygen store and the circulation all answering to the drugs given.",
-    "published_version": 1,
-    "updated": "2026-11-25 03:14:23",
+    "published_version": 2,
+    "updated": "2026-11-25 04:04:24",
     "graph": {
         "nodes": [
             {
@@ -31,7 +31,7 @@
                 "params": {
                     "interval": 0.2,
                     "channels": "patient,vitals,events",
-                    "keep": 3000
+                    "keep": 20000
                 },
                 "title": "The patient, live"
             },
@@ -151,16 +151,16 @@
         ],
         "notes": [
             {
-                "id": "m3876ed88",
-                "x": -700,
-                "y": -340,
+                "id": "m946fa8fd",
+                "x": 0,
+                "y": -160,
                 "w": 220,
                 "h": 120,
                 "text": "The room runs the whole-body model of every drug you give, ten seconds of patient time at a step, and scores what you do. Everything is done from the 3D view's controls while it runs.",
                 "color": "yellow",
                 "by": "Gianluca De Novi",
                 "by_id": 1,
-                "at": "2026-11-25 03:01:34"
+                "at": "2026-11-25 04:04:24"
             }
         ],
         "dash": {
