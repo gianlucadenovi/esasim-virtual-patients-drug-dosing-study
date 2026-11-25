@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 60 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 61 · worker block, Python: def run(ctx)
 # A whole-body pharmacokinetic model of twenty drugs in virtual patients: trials, the best dose per population, a live bedside, and an anaesthesia room where a case is run and scored
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-25
@@ -2232,6 +2232,7 @@ def anaesthesia_run(ctx):
     clocks = {"Real time": 1.0 / 3600.0, "1 min/s": 1.0 / 60.0, "5 min/s": 5.0 / 60.0, "15 min/s": 0.25, "1 h/s": 1.0}
     speed, fps = 1.0 / 60.0, 5.0
     shown = {"text": "", "until": 0.0}
+    demo = {"on": False, "next": 0.0}            # (the room playing the case itself, a move at a time)
 
     def clock(h):
         m = int(round(h * 60.0))                     # (round the minutes first, so 59.7 becomes 1:00, not 0:00)
@@ -2246,6 +2247,7 @@ def anaesthesia_run(ctx):
     def restart(scen=None, who=None):
         nonlocal T
         T = Theatre(scen or T.scenario, who or T.patient_name, rng, torch)
+        demo["on"] = False
         ctx.telemetry("events", {"text": "─── %s ───" % T.scenario})
         say("%s. %s" % (T.patient_name, T.sc["brief"]))
         flash("Ready: %s, %s" % (T.patient_name, T.scenario))
@@ -2306,6 +2308,35 @@ def anaesthesia_run(ctx):
     def handle(name, value):
         nonlocal focus, speed
         name = str(name).strip().lower()
+        if name.startswith("give "):                 # a drug with a button of its own: "give propofol"
+            want = next((d for d in AN_PATIENT_DRUGS if d.lower() == name[5:].strip()), None)
+            if want:
+                focus = want
+                mg = T.give(want)
+                say("%s %s given." % (want, mg_text(want, mg)))
+                flash("%s %s" % (want, mg_text(want, mg)))
+            return False
+        if name == "administer" and isinstance(value, dict):      # the drug trolley: drug, how much, and how
+            want = next((d for d in AN_PATIENT_DRUGS if d.lower() == str(value.get("drug", "")).lower()), None)
+            if want:
+                focus = want
+                x = max(0.0, float(value.get("x", 1.0) or 0.0))
+                if str(value.get("route", "bolus")) == "infusion":
+                    T.set_infusion(want, x)
+                    r = T.amount(want, "infusion") * x
+                    say("%s infusion %s." % (want, rate_text(want, r, T.weight)) if r > 0 else "%s infusion off." % want)
+                    flash("%s %s" % (want, rate_text(want, r, T.weight)) if r > 0 else "%s infusion off" % want)
+                else:
+                    T.dose_x[want] = x
+                    mg = T.give(want)
+                    say("%s %s given." % (want, mg_text(want, mg)))
+                    flash("%s %s" % (want, mg_text(want, mg)))
+            return False
+        if name == "demo":
+            demo["on"] = not demo["on"]
+            say("Demo: the room plays the case itself." if demo["on"] else "Demo off: the controls are yours.")
+            flash("Demo on · watch it once, then press Demo again to take over" if demo["on"] else "Demo off")
+            return False
         if name == "scenario" and value in AN_SCENARIOS:
             restart(scen=value)
         elif name == "patient" and value in PROFILES:
@@ -2385,9 +2416,16 @@ def anaesthesia_run(ctx):
                 "focus_txt": "%s: effect site %s, plasma %s" % (
                     focus, level_text(focus, C.get(focus, 0.0)), level_text(focus, float(fc.plasma()[0]))),
                 "why": "%s: %s" % (focus, dosing_text(focus, T))}
+        item["inf"] = {n: round(x, 2) for n, x in T.inf.items() if x > 0}        # (what is running, for the trolley)
+        if tick % 25 == 0:                                        # (every five seconds: the trolley keeps the last)
+            item["weight"] = round(T.weight, 1)
+            item["doses"] = {n: {"bolus": mg_text(n, T.amount(n, "bolus")),
+                                 "rate": rate_text(n, T.amount(n, "infusion"), T.weight) if DRUGS[n].get("infusion") else "",
+                                 "now": round(T.inf.get(n, 0.0), 2)} for n in AN_PATIENT_DRUGS}
         organ_colours(item, fc, DRUGS[focus], focus)
+        nxt = next((x for x in T.sc["steps"] if x not in T.done), None)
         for i, s in enumerate(T.sc["steps"]):
-            item["s%d" % i] = ("v " if s in T.done else "o ") + s
+            item["s%d" % i] = ("✓ " if s in T.done else "▶ " if s == nxt else "· ") + s
         for i in range(len(T.sc["steps"]), 8):
             item["s%d" % i] = ""
         lines = []
