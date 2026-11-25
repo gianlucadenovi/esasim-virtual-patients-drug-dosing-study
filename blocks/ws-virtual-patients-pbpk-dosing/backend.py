@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 58 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 59 · worker block, Python: def run(ctx)
 # A whole-body pharmacokinetic model of twenty drugs in virtual patients: trials, the best dose per population, a live bedside, and an anaesthesia room where a case is run and scored
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-25
@@ -2489,7 +2489,8 @@ def an_scene_file(offset=AN_OFFSET, prefix=""):
                  "items": [{"type": "text", "text": "@patient.d%d" % k, "size": "small"} for k in range(6)]}]},
             # (on the right: the job and its steps already make the left side tall, and two tall panels on one side
             #  sit on top of each other when the window is short)
-            {"type": "panel", "at": "top-right", "title": "Where the chosen drug is", "css": "width:210px;max-width:none",
+            {"type": "panel", "at": "top-right", "title": "Where the chosen drug is",
+             "css": "width:210px;max-width:none;margin-top:36px",      # (clear of Sound, 3D mouse, Picture, Record)
              "items": [{"type": "text", "text": "@patient.focus_txt", "size": "small"},
                        {"type": "text", "text": "@patient.why", "color": "#9aa3b2", "size": "small"}] + organs},
             {"type": "events", "at": "bottom-right", "count": 4}]})
