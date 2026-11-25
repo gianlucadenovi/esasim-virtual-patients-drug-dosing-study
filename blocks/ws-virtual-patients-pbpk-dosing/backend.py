@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 65 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 66 · worker block, Python: def run(ctx)
 # A whole-body pharmacokinetic model of twenty drugs in virtual patients: trials, the best dose per population, a live bedside, and an anaesthesia room where a case is run and scored
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-25
@@ -2537,12 +2537,6 @@ def anaesthesia_run(ctx):
                                  "rate": rate_text(n, T.amount(n, "infusion"), T.weight) if DRUGS[n].get("infusion") else "",
                                  "now": round(T.inf.get(n, 0.0), 2)} for n in AN_PATIENT_DRUGS}
         organ_colours(item, fc, DRUGS[focus], focus)
-        nxt = next((x for x in T.sc["steps"] if x not in T.done), None)
-        for i, s in enumerate(T.sc["steps"]):
-            item["s%d" % i] = (("✓ " if s in T.done else "▶ " if s == nxt else "· ") + s
-                               + ("  " + clock(T.done[s]) if s in T.done else ""))
-        for i in range(len(T.sc["steps"]), 8):
-            item["s%d" % i] = ""
         lines = []
         for name, c in T.drugs.items():
             ce = C.get(name, 0.0)
@@ -2595,7 +2589,6 @@ def an_scene_file(offset=AN_OFFSET, prefix=""):
     organs = [{"type": "bar", "label": TISSUE_LABEL[t], "value": "@patient.p_%s" % t, "min": 0, "max": 1,
                "format": "%", "width": 180, "color": "#fa8040"}
               for t in ("brain", "heart", "lung", "liver", "kidney", "muscle", "adipose")]
-    steps = [{"type": "text", "text": "@patient.s%d" % k, "size": "small"} for k in range(8)]
     return _full_width({
         "format": "esasim.scene/2", "title": "Anaesthesia", "units": "m", "up": "z",
         "renderer": {"bloom": {"strength": 0.3, "radius": 0.4, "threshold": 0.8}},
@@ -2623,17 +2616,18 @@ def an_scene_file(offset=AN_OFFSET, prefix=""):
             {"type": "caption", "at": "center", "text": "@patient.banner", "visible": "@patient.banner_on",
              "style": "broadcast"},
             {"type": "panel", "at": "top-left", "style": "none", "css": "width:232px;max-width:none", "items": [
-                {"type": "panel", "title": "The job", "style": "clean", "css": "width:210px;max-width:none", "items": [
+                # (the job and the steps to tick off are the trolley's, beside the view: there they tick off with
+                #  the time each one was reached, so the view keeps only who, where the case is up to, and the marks)
+                {"type": "panel", "title": "The patient", "style": "clean", "css": "width:210px;max-width:none", "items": [
                     {"type": "text", "text": "@patient.who"},
                     {"type": "text", "text": "@patient.phase", "size": "large"},
                     {"type": "text", "text": "@patient.day", "color": "#9aa3b2", "size": "small"},
-                    {"type": "text", "text": "@patient.target", "color": "#7dffb0", "size": "small"}] + steps + [
+                    {"type": "text", "text": "@patient.target", "color": "#7dffb0", "size": "small"},
                     {"type": "text", "text": "@patient.score_txt", "color": "#ffe08a"},
                     {"type": "text", "text": "@patient.in_band", "color": "#9aa3b2", "size": "small"}]},
                 {"type": "panel", "title": "Given", "style": "clean", "css": "width:210px;max-width:none;margin-top:10px",
                  "items": [{"type": "text", "text": "@patient.d%d" % k, "size": "small"} for k in range(6)]}]},
-            # (on the right: the job and its steps already make the left side tall, and two tall panels on one side
-            #  sit on top of each other when the window is short)
+            # (on the right: two tall panels on one side sit on top of each other when the window is short)
             {"type": "panel", "at": "top-right", "title": "Where the chosen drug is",
              "css": "width:210px;max-width:none;margin-top:36px",      # (clear of Sound, 3D mouse, Picture, Record)
              "items": [{"type": "text", "text": "@patient.focus_txt", "size": "small"},
