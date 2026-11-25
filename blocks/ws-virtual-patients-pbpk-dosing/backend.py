@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 51 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 52 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of twelve drugs in virtual patients: trials, the best dose per population, and a live bedside where drugs are combined on one patient
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-25
@@ -2412,6 +2412,77 @@ def anaesthesia_run(ctx):
     return {"scenario": T.scenario, "patient": T.patient_name, "score": r["total"], "grade": r["grade"],
             "steps_done": "%d of %d" % (r["done"], r["of"]), "at_target_pct": r["in_band_pct"],
             "pressure_held_pct": r["map_pct"], "minutes_hypoxic": r["hypox_min"], "times_moved": r["moves"]}
+
+def an_scene_file(offset=(0.0, 0.0, 0.0), prefix=""):
+    """the anaesthesia room's 3D view: the same patient, coloured by the drug chosen, with the anaesthetist's controls,
+    the job in hand, the steps to tick off and the score so far"""
+    beat, breath = "@patient.beat", "@patient.breath"
+    mats = {"skin": {"opacity": 0.12, "emissive": "@patient.glass"}}
+    for t in ORGAN_VIEW:
+        if t != "skin":
+            mats[t] = {"color": "@patient.c_%s" % t, "emissive": "@patient.g_%s" % t}
+    mats["bone"]["opacity"] = 1
+    mats["arterial"] = {"color": "@patient.c_blood", "emissive": "@patient.g_blood"}
+    mats["venous"] = {"color": "@patient.c_blood", "emissive": "@patient.g_blood"}
+    pulse = "max(0, 1 - 7 * abs((%s - floor(%s)) * 60 / max(@vitals.hr, 20) - 0.27))" % (beat, beat)
+    fill = "sin(3.1416 * min(1, max(0, ((%s - floor(%s)) * 60 / max(@patient.rr, 3) - 0.3) / 2.6)))" % (breath, breath)
+    parts = {"heart": {"scale": {"expr": "1 + 0.09 * %s" % pulse}},
+             "lung": {"scale": [{"expr": "1 + %g * %s" % (k, fill)} for k in (0.012, 0.012, 0.03)]},
+             "ribcage": {"scale": [{"expr": "1 + %g * %s" % (k, fill)} for k in (0.02, 0.03, 0.005)]}}
+    organs = [{"type": "bar", "label": TISSUE_LABEL[t], "value": "@patient.p_%s" % t, "min": 0, "max": 1,
+               "format": "%", "width": 180, "color": "#fa8040"}
+              for t in ("brain", "heart", "lung", "liver", "kidney", "muscle", "adipose")]
+    steps = [{"type": "text", "text": "@patient.s%d" % k, "size": "small"} for k in range(8)]
+    return _full_width({
+        "format": "esasim.scene/2", "title": "Anaesthesia", "units": "m", "up": "z",
+        "renderer": {"bloom": {"strength": 0.3, "radius": 0.4, "threshold": 0.8}},
+        "data": {"delay": 0.6, "smooth": 0.2, "events": "events"},
+        "environment": {"sky": "space", "ground": {"type": "none"}},
+        "lights": [{"type": "sun", "intensity": 1.1, "color": "#dfe8ff", "elevation": 60, "azimuth": 120},
+                   {"type": "spot", "intensity": 22, "color": "#ffffff", "at": [0.0, 2.0, 1.8], "aim": [0, 0, 0], "angle": 26},
+                   {"type": "spot", "intensity": 14, "color": "#5c8dff", "at": [0.0, -1.8, 1.4], "aim": [0, 0, 0], "angle": 30},
+                   {"type": "ambient", "intensity": 0.3, "color": "#9fb4ff"}],
+        "models": [{"id": "patient", "model": prefix + "patient split.glb", "up": "z",
+                    "position": [round(v, 4) for v in offset], "materials": mats, "parts": parts}],
+        "scripts": [prefix + TURN_SCRIPT],
+        "sounds": [{"id": "heartbeat", "sound": prefix + HEART_SOUND, "volume": 0.8,
+                    "on": {"expr": "%s - floor(%s) < 0.5" % (beat, beat)}},
+                   {"id": "breath", "sound": prefix + BREATH_SOUND, "volume": 0.6,
+                    "on": {"expr": "%s - floor(%s) < 0.5" % (breath, breath)}}],
+        "cameras": [{"id": "front", "type": "orbit", "position": [0.55, 1.45, 0.35], "look_at": [0, 0, 0]}],
+        "start": "front",
+        "controls": [
+            {"type": "select", "name": "scenario", "label": "Job", "options": list(AN_SCENARIOS)},
+            {"type": "select", "name": "patient", "label": "Patient", "options": list(PROFILES)},
+            {"type": "select", "name": "drug", "label": "Drug", "options": AN_PATIENT_DRUGS},
+            {"type": "slider", "name": "dose", "label": "Bolus x", "min": 0.25, "max": 4, "value": 1, "step": 0.25},
+            {"type": "button", "label": "Give", "send": "give"},
+            {"type": "slider", "name": "infusion", "label": "Infusion x", "min": 0, "max": 3, "value": 0, "step": 0.25},
+            {"type": "button", "label": "Stop infusions", "send": "stop infusions"},
+            {"type": "button", "label": "Preoxygenate", "send": "preoxygenate"},
+            {"type": "select", "name": "airway", "label": "Airway", "options": list(AIRWAYS)},
+            {"type": "select", "name": "clock", "label": "Clock",
+             "options": ["Real time", "1 min/s", "5 min/s", "15 min/s", "1 h/s"], "value": "1 min/s"},
+            {"type": "button", "label": "Start again", "send": "start again"}],
+        "overlay": [
+            {"type": "panel", "at": "top", "css": "width:250px;max-width:none", "items": [
+                {"type": "text", "text": "@patient.hint", "color": "#ffe08a"}]},
+            {"type": "caption", "at": "center", "text": "@patient.banner", "visible": "@patient.banner_on",
+             "style": "broadcast"},
+            {"type": "panel", "at": "top-left", "style": "none", "css": "width:232px;max-width:none", "items": [
+                {"type": "panel", "title": "The job", "style": "clean", "css": "width:210px;max-width:none", "items": [
+                    {"type": "text", "text": "@patient.who"},
+                    {"type": "text", "text": "@patient.phase", "size": "large"},
+                    {"type": "text", "text": "@patient.day", "color": "#9aa3b2", "size": "small"},
+                    {"type": "text", "text": "@patient.target", "color": "#7dffb0", "size": "small"}] + steps + [
+                    {"type": "text", "text": "@patient.score_txt", "color": "#ffe08a"},
+                    {"type": "text", "text": "@patient.in_band", "color": "#9aa3b2", "size": "small"}]},
+                {"type": "panel", "title": "Given", "style": "clean", "css": "width:210px;max-width:none;margin-top:10px",
+                 "items": [{"type": "text", "text": "@patient.d%d" % k, "size": "small"} for k in range(6)]}]},
+            {"type": "panel", "at": "left", "title": "Where the chosen drug is", "css": "width:210px;max-width:none",
+             "items": [{"type": "text", "text": "@patient.focus_txt", "size": "small"},
+                       {"type": "text", "text": "@patient.why", "color": "#9aa3b2", "size": "small"}] + organs},
+            {"type": "events", "at": "bottom-right", "count": 5}]})
 # ── the 3D view's files ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 HEART_SOUND = "universfield-heartbeat-single-383748.mp3"     # (the project's assets: one heartbeat, one deep breath)
 BREATH_SOUND = "hasin2004-deep-breath-247459.mp3"
