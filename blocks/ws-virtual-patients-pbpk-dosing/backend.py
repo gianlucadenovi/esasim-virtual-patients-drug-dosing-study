@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 56 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 57 · worker block, Python: def run(ctx)
 # A whole-body pharmacokinetic model of twenty drugs in virtual patients: trials, the best dose per population, a live bedside, and an anaesthesia room where a case is run and scored
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-25
@@ -2376,8 +2376,10 @@ def anaesthesia_run(ctx):
                 "banner_on": bool(shown["text"] if now_s < shown["until"] else ""),
                 "target": "Target BIS %d-%d" % T.sc["band"],
                 "score": rep["total"], "grade": rep["grade"],
-                "score_txt": "Score %d / 100 · %s" % (rep["total"], rep["grade"]),
-                "in_band": "%d%% at the right depth · %d%% with the pressure held" % (rep["in_band_pct"], rep["map_pct"]),
+                "score_txt": ("Score %d / 100 · %s" % (rep["total"], rep["grade"])) if T.sa["t"] > 0
+                             else "Not scored yet",
+                "in_band": ("%d%% at the right depth · %d%% with the pressure held" % (rep["in_band_pct"], rep["map_pct"]))
+                           if T.sa["t"] > 0 else "The marks start once you are holding the depth.",
                 "focus_txt": "%s: effect site %s, plasma %s" % (
                     focus, level_text(focus, C.get(focus, 0.0)), level_text(focus, float(fc.plasma()[0]))),
                 "why": "%s: %s" % (focus, dosing_text(focus, T))}
@@ -2416,7 +2418,10 @@ def anaesthesia_run(ctx):
             "steps_done": "%d of %d" % (r["done"], r["of"]), "at_target_pct": r["in_band_pct"],
             "pressure_held_pct": r["map_pct"], "minutes_hypoxic": r["hypox_min"], "times_moved": r["moves"]}
 
-def an_scene_file(offset=(0.0, 0.0, 0.0), prefix=""):
+AN_OFFSET = (0.0061, -0.1476, -1.1497)      # (what puts the middle of patient split.glb at the scene's origin)
+
+
+def an_scene_file(offset=AN_OFFSET, prefix=""):
     """the anaesthesia room's 3D view: the same patient, coloured by the drug chosen, with the anaesthetist's controls,
     the job in hand, the steps to tick off and the score so far"""
     beat, breath = "@patient.beat", "@patient.breath"

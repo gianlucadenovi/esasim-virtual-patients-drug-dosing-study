@@ -328,7 +328,7 @@ An [EsaSim](https://esacode.com/) project of the workspace Gianluca De Novi's wo
 
 ### Workspace blocks it uses
 
-- [Virtual patients (PBPK dosing)](blocks/ws-virtual-patients-pbpk-dosing) · version 56
+- [Virtual patients (PBPK dosing)](blocks/ws-virtual-patients-pbpk-dosing) · version 57
 - [Bedside monitor](blocks/ws-bedside-monitor) · version 3
 - [Model files (preview and download)](blocks/ws-model-files-preview-and-download) · version 1
 
