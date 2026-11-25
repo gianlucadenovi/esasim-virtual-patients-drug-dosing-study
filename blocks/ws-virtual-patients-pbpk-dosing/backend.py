@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 54 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 55 · worker block, Python: def run(ctx)
 # A whole-body physiologically based pharmacokinetic model of twenty drugs in virtual patients: trials, the best dose per population, a live bedside where drugs are combined on one patient, and an anaes
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-25
@@ -2400,7 +2400,7 @@ def anaesthesia_run(ctx):
             item["d0"] = "Nothing given yet."
         ctx.telemetry("patient", item)
         ctx.telemetry("vitals", dict(v, bp="%d/%d" % (v["sys"], v["dia"]), who=T.patient_name, day=clock(T.t),
-                                     drugs=lines, rhythm=rhythm_of(v), effects=v["notes"], nausea="none",
+                                     t_h=round(T.t, 3), drugs=lines, rhythm=rhythm_of(v), effects=v["notes"], nausea="none",
                                      airway={"none": "no support", "mask": "bag-mask", "tube": "ventilated"}[T.airway],
                                      sedation=v["ramsay"], sedation_txt=RAMSAY[v["ramsay"] - 1], pain=0,
                                      qtc=T.base["qtc"], alarms=alarms_of(v, T), ectopy=0.0, dropped=0.0))
