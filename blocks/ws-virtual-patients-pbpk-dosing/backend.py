@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 61 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 62 · worker block, Python: def run(ctx)
 # A whole-body pharmacokinetic model of twenty drugs in virtual patients: trials, the best dose per population, a live bedside, and an anaesthesia room where a case is run and scored
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-25
@@ -1921,6 +1921,7 @@ class Theatre:
         self.base_map = (self.base["sys"] + 2.0 * self.base["dia"]) / 3.0
         self.t, self.carry = 0.0, 0.0
         self.drugs, self.inf, self.dose_x = {}, {}, {}
+        self.given = set()                    # (what has actually been given: a drug merely shown has a course too)
         self.roc_ce = 0.0
         self.airway = self.sc["start_airway"]
         self.preox = self.airway == "tube"
@@ -1957,6 +1958,7 @@ class Theatre:
     def give(self, name):
         mg = self.amount(name, "bolus") * self.dose_x.get(name, 1.0)
         self.course(name).give(self.t, mg, "iv", self.bolus_of(DRUGS[name])[1])
+        self.given.add(name)
         return mg
 
     def set_infusion(self, name, mult):
@@ -2376,6 +2378,72 @@ def anaesthesia_run(ctx):
             speed = clocks.get(str(value), speed)
         return False
 
+    def demo_step():
+        """plays the case the way the README describes it: one move whenever the patient is ready for it,
+        read off the monitor rather than off a script, so it answers to the patient in front of it"""
+        k = T.sc["kind"]
+        v = T.v or an_vitals(T.levels(), T.base, {"airway": T.airway, "o2": T.o2, "stimulus": 0.0, "roc_ce": 0.0})
+        if k == "theatre":
+            if "Preoxygenate" not in T.done:
+                return handle("preoxygenate", None)
+            if "Propofol" not in T.given:
+                handle("give propofol", None)
+                return handle("give remifentanil", None)
+            if v["bis"] > 70:
+                return None                                    # (waiting for them to go to sleep)
+            if "Rocuronium" not in T.given:
+                handle("give rocuronium", None)
+                return handle("airway", "Bag-mask")
+            if T.airway != "tube":
+                return handle("airway", "Intubated") if v["tof"] <= 1 else None
+            if T.phase == "surgery":
+                if not T.inf.get("Propofol"):
+                    handle("drug", "Propofol")
+                    handle("infusion", 1.0)
+                    handle("drug", "Remifentanil")
+                    handle("infusion", 1.0)
+                    handle("drug", "Propofol")
+                    return handle("clock", "1 h/s")
+                if v["map"] < 65:
+                    return handle("give phenylephrine", None)
+                x = T.inf.get("Propofol", 1.0)
+                handle("drug", "Propofol")
+                if v["bis"] > T.sc["band"][1]:
+                    return handle("infusion", round(min(2.5, x + 0.25), 2))
+                if v["bis"] < T.sc["band"][0]:
+                    return handle("infusion", round(max(0.0, x - 0.25), 2))
+                return None
+            if T.phase == "emergence":
+                if sum(T.inf.values()) > 0:
+                    handle("stop infusions", None)
+                    return handle("clock", "1 min/s")
+                if "Sugammadex" not in T.given:
+                    return handle("give sugammadex", None)
+                if v["bis"] >= 80 and v["rr"] >= 8:
+                    return handle("airway", "No support")
+            return None
+        # intensive care and the therapeutic coma: settle at the depth asked for, hold it, then let go
+        lo, hi = T.sc["band"]
+        if T.phase in ("start", "settle", "hold", "resedate"):
+            if not T.inf.get("Propofol"):
+                handle("drug", "Propofol")
+                handle("infusion", 0.65 if k == "icu" else 1.2)
+                return handle("clock", "1 h/s")
+            if k == "coma" and v["map"] < 70 and not T.inf.get("Phenylephrine"):
+                handle("drug", "Phenylephrine")
+                handle("infusion", 0.5)
+                return handle("drug", "Propofol")
+            x = T.inf.get("Propofol", 0.0)
+            handle("drug", "Propofol")
+            if v["bis"] > hi:
+                return handle("infusion", round(min(4.0, x + 0.15), 2))
+            if v["bis"] < lo:
+                return handle("infusion", round(max(0.0, x - 0.15), 2))
+            return None
+        if T.phase == "wake" and sum(T.inf.values()) > 0:
+            return handle("stop infusions", None)
+        return None
+
     restart()
     t0, deadline, tick = time.time(), time.time() + minutes * 60.0, 0
     beat, breath, last = 0.0, 0.0, time.time()
@@ -2388,6 +2456,9 @@ def anaesthesia_run(ctx):
             d = msg.get("data") if isinstance(msg, dict) else None
             if isinstance(d, dict) and "control" in d:
                 handle(d["control"], d.get("value"))
+        if demo["on"] and not T.finished and time.time() >= demo["next"]:
+            demo["next"] = time.time() + 0.9          # (a move at a time, slow enough to follow)
+            demo_step()
         if not T.finished:
             T.advance(speed / fps, say)
         v = T.v or an_vitals(T.levels(), T.base, {"airway": T.airway, "o2": T.o2, "stimulus": 0.0, "roc_ce": 0.0})
@@ -2499,19 +2570,9 @@ def an_scene_file(offset=AN_OFFSET, prefix=""):
                     "on": {"expr": "%s - floor(%s) < 0.5" % (breath, breath)}}],
         "cameras": [{"id": "front", "type": "orbit", "position": [0.55, 1.45, 0.35], "look_at": [0, 0, 0]}],
         "start": "front",
-        "controls": [
-            {"type": "select", "name": "scenario", "label": "Job", "options": list(AN_SCENARIOS)},
-            {"type": "select", "name": "patient", "label": "Patient", "options": list(PROFILES)},
-            {"type": "select", "name": "drug", "label": "Drug", "options": AN_PATIENT_DRUGS},
-            {"type": "slider", "name": "dose", "label": "Bolus x", "min": 0.25, "max": 4, "value": 1, "step": 0.25},
-            {"type": "button", "label": "Give", "send": "give"},
-            {"type": "slider", "name": "infusion", "label": "Infusion x", "min": 0, "max": 3, "value": 0, "step": 0.25},
-            {"type": "button", "label": "Stop infusions", "send": "stop infusions"},
-            {"type": "button", "label": "Preoxygenate", "send": "preoxygenate"},
-            {"type": "select", "name": "airway", "label": "Airway", "options": list(AIRWAYS)},
-            {"type": "select", "name": "clock", "label": "Clock",
-             "options": ["Real time", "1 min/s", "5 min/s", "15 min/s", "1 h/s"], "value": "1 min/s"},
-            {"type": "button", "label": "Start again", "send": "start again"}],
+        # no control bar under the patient: the Anaesthetic trolley beside the view is where the room is worked from,
+        # with the drugs, the airway and the case in groups instead of seventeen controls in a row
+        "controls": [],
         "overlay": [
             {"type": "panel", "at": "top", "css": "width:250px;max-width:none", "items": [
                 {"type": "text", "text": "@patient.hint", "color": "#ffe08a"}]},
