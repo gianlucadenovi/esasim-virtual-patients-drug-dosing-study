@@ -1,5 +1,5 @@
 # ── EsaSim block ──────────────────────────────────────────────────────
-# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 63 · worker block, Python: def run(ctx)
+# Virtual patients (PBPK dosing) (ws-virtual-patients-pbpk-dosing) · version 64 · worker block, Python: def run(ctx)
 # A whole-body pharmacokinetic model of twenty drugs in virtual patients: trials, the best dose per population, a live bedside, and an anaesthesia room where a case is run and scored
 # Workspace: Gianluca De Novi's workspace · Author: Gianluca De Novi
 # Saved: 2026-11-25
@@ -1902,36 +1902,42 @@ AN_SCENARIOS = {
 }
 # the right protocol for each job, written as the actions the trolley offers: what "show me the right sequence"
 # puts in front of someone who has never given an anaesthetic, and what the Demo does for them if they ask
+# (each line also names the step of the job it achieves, so the sequence can tick itself off with the time it
+#  happened; a line with None is an aside that nothing marks done)
 AN_PROTOCOL = {
     "theatre": [
-        "Preoxygenate.",
-        "Propofol 2 mg/kg, one push.",
-        "Remifentanil 1 microgram/kg, one push.",
-        "Wait until the patient is asleep (BIS under 60).",
-        "Rocuronium 0.6 mg/kg, one push: this stops the breathing too.",
-        "Airway: Bag-mask, and breathe for them while the relaxant works.",
-        "Wait for train-of-four 0, then Airway: Intubated.",
-        "Propofol infusion x1 and Remifentanil infusion x1.",
-        "Clock 1 h/s, and hold BIS 40-60 for the four hours. A push of Phenylephrine if the mean pressure "
-        "falls under 65.",
-        "When the surgeon has finished: Stop every infusion, and Clock back to 1 min/s.",
-        "Sugammadex 2 mg/kg, one push: the paralysis goes in two minutes.",
-        "Wait for BIS over 80 and the breathing back, then Airway: No support.",
+        ("Preoxygenate.", "Preoxygenate"),
+        ("Propofol 2 mg/kg, one push.", "Asleep (BIS under 60)"),
+        ("Remifentanil 1 microgram/kg, one push.", "Asleep (BIS under 60)"),
+        ("Wait until the patient is asleep (BIS under 60).", "Asleep (BIS under 60)"),
+        ("Rocuronium 0.6 mg/kg, one push: this stops the breathing too.", "Paralysed (train-of-four 0-1)"),
+        ("Airway: Bag-mask, and breathe for them while the relaxant works.", "Paralysed (train-of-four 0-1)"),
+        ("Wait for train-of-four 0, then Airway: Intubated.", "Intubated"),
+        ("Propofol infusion x1 and Remifentanil infusion x1.", "Through the operation"),
+        ("Clock 1 h/s, and hold BIS 40-60 for the four hours. A push of Phenylephrine if the mean pressure "
+         "falls under 65.", "Through the operation"),
+        ("When the surgeon has finished: Stop every infusion, and Clock back to 1 min/s.",
+         "Paralysis reversed (train-of-four ratio 0.9)"),
+        ("Sugammadex 2 mg/kg, one push: the paralysis goes in two minutes.",
+         "Paralysis reversed (train-of-four ratio 0.9)"),
+        ("Wait for BIS over 80 and the breathing back, then Airway: No support.", "Tube out"),
     ],
     "icu": [
-        "Propofol infusion x0.65.",
-        "Clock 1 h/s, and move the infusion up or down until BIS sits at 58-80.",
-        "Hold it there for eight hours.",
-        "Stop every infusion, and wait until they are rousable (BIS over 80): about half an hour on propofol.",
-        "Propofol infusion x0.35 again, and settle them back in the band for two hours.",
-        "Try the same case on Midazolam to see why the choice of drug matters.",
+        ("Propofol infusion x0.65.", "Sedation started"),
+        ("Clock 1 h/s, and move the infusion up or down until BIS sits at 58-80.", "At the target depth"),
+        ("Hold it there for eight hours.", "Eight hours held"),
+        ("Stop every infusion, and wait until they are rousable (BIS over 80): about half an hour on propofol.",
+         "Woken for the test (Ramsay 2)"),
+        ("Propofol infusion x0.35 again, and settle them back in the band for two hours.", "Settled again"),
+        ("Try the same case on Midazolam to see why the choice of drug matters.", None),
     ],
     "coma": [
-        "Propofol infusion x1.2.",
-        "Clock 1 h/s, and raise the infusion until BIS sits at 12-25 (burst suppression).",
-        "When the mean pressure falls under 70, Phenylephrine infusion x0.5.",
-        "Hold it there for twenty-four hours.",
-        "Stop every infusion and wait: after a day of propofol they take hours to come back.",
+        ("Propofol infusion x1.2.", "Sedation started"),
+        ("Clock 1 h/s, and raise the infusion until BIS sits at 12-25 (burst suppression).",
+         "Burst suppression reached"),
+        ("When the mean pressure falls under 70, Phenylephrine infusion x0.5.", None),
+        ("Hold it there for twenty-four hours.", "Twenty-four hours held"),
+        ("Stop every infusion and wait: after a day of propofol they take hours to come back.", "Awake"),
     ],
 }
 # the things that cost marks beyond the time at depth: what went wrong, and what each mistake is worth
@@ -2524,15 +2530,17 @@ def anaesthesia_run(ctx):
         item["inf"] = {n: round(x, 2) for n, x in T.inf.items() if x > 0}        # (what is running, for the trolley)
         if tick % 25 == 0:                                        # (every five seconds: the trolley keeps the last)
             item["weight"] = round(T.weight, 1)
-            item["protocol"] = AN_PROTOCOL.get(T.sc["kind"], [])
+            item["protocol"] = [{"do": t, "step": s} for t, s in AN_PROTOCOL.get(T.sc["kind"], [])]
             item["steps"] = list(T.sc["steps"])
+        item["done_at"] = {s: clock(h) for s, h in T.done.items()}      # (when each step was reached)
             item["doses"] = {n: {"bolus": mg_text(n, T.amount(n, "bolus")),
                                  "rate": rate_text(n, T.amount(n, "infusion"), T.weight) if DRUGS[n].get("infusion") else "",
                                  "now": round(T.inf.get(n, 0.0), 2)} for n in AN_PATIENT_DRUGS}
         organ_colours(item, fc, DRUGS[focus], focus)
         nxt = next((x for x in T.sc["steps"] if x not in T.done), None)
         for i, s in enumerate(T.sc["steps"]):
-            item["s%d" % i] = ("✓ " if s in T.done else "▶ " if s == nxt else "· ") + s
+            item["s%d" % i] = (("✓ " if s in T.done else "▶ " if s == nxt else "· ") + s
+                               + ("  " + clock(T.done[s]) if s in T.done else ""))
         for i in range(len(T.sc["steps"]), 8):
             item["s%d" % i] = ""
         lines = []
