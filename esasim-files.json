@@ -8,8 +8,8 @@
     "assets": [
         {
             "path": "anaesthesia.scene.json",
-            "size": 5957,
-            "sha256": "1b691830bf6a2d68b9cca09a0aa956406ba09d5bfbd968286e3e7c64e2577be2",
+            "size": 6231,
+            "sha256": "d537bfe87a5dba4a78357842beea8dc2ffec16a72db5a8714c93a5638dfc5e66",
             "zip": "assets/anaesthesia.scene.json",
             "in": "repo"
         },
@@ -56,5 +56,5 @@
             "in": "repo"
         }
     ],
-    "saved": "2026-11-25T05:10:47+00:00"
+    "saved": "2026-11-25T05:22:32+00:00"
 }

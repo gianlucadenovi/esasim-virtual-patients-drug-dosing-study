@@ -350,7 +350,7 @@ An [EsaSim](https://esacode.com/) project of the workspace Gianluca De Novi's wo
 
 The files the project's views draw with (3D models, textures, sounds), in [assets/](assets/):
 
-- [anaesthesia.scene.json](assets/anaesthesia.scene.json) · 5.8 KB
+- [anaesthesia.scene.json](assets/anaesthesia.scene.json) · 6.1 KB
 - [covers/fda-project-optimus-selecting-optimal-dose-oncology.webp](assets/covers/fda-project-optimus-selecting-optimal-dose-oncology.webp) · 355 KB
 - [hasin2004-deep-breath-247459.mp3](assets/hasin2004-deep-breath-247459.mp3) · 148 KB
 - [patient split.glb](assets/patient%20split.glb) · 12 MB
